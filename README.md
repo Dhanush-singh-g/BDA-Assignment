@@ -140,3 +140,7 @@ pending until the archive and three college systems are available.
 Keep generated data, credentials, database files and run outputs outside Git.
 Archive final measured results separately with source fingerprints and machine
 inventory. Do not fill report tables with invented times or compression ratios.
+
+For development against the existing linked 10,000-food MongoDB subset, see
+[real-data subset integration](docs/real-subset.md). This compares MongoDB,
+MapReduce and Hive results without reimporting the full archive.
