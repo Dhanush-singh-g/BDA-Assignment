@@ -23,8 +23,8 @@
 
 ## Part 2 — practical extension (10 marks)
 
-Planned: Flask dashboard showing dataset coverage, nutrient summaries and measured
-query/storage benchmarks. Build after the core workflows. It should read saved
+Implemented: [Flask dashboard](dashboard.md) showing dataset coverage, nutrient summaries and measured
+query/storage benchmarks. Validate the local browser demo against the saved development evidence. It should read saved
 results or controlled APIs, show data/run provenance, and never display fixture
 measurements as full-dataset results. Include architecture, implementation,
 functional validation and screenshots in a separate report section.

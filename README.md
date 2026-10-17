@@ -1,8 +1,7 @@
 # USDA FoodData Central — Track B
 
 BCS714D Big Data Analytics, 2026–2027. This repository develops the three mandatory
-themes first; the Flask dashboard is the planned 10-mark extension after these
-workflows are validated. The final report must cover Parts 1 and 2 separately.
+themes first; the Flask dashboard is the 10-mark practical extension. The final report must cover Parts 1 and 2 separately.
 
 **Dataset:** the complete [October 31, 2024 CSV package](https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_csv_2024-10-31.zip).
 [USDA dataset documentation](https://fdc.nal.usda.gov/download-datasets/).
@@ -144,3 +143,9 @@ inventory. Do not fill report tables with invented times or compression ratios.
 For development against the existing linked 10,000-food MongoDB subset, see
 [real-data subset integration](docs/real-subset.md). This compares MongoDB,
 MapReduce and Hive results without reimporting the full archive.
+
+## Part 2 — dashboard
+
+The [Flask dashboard](docs/dashboard.md) reads recorded subset or full-run
+evidence, displays nutrient summaries and MongoDB/Hive benchmarks, and runs
+without the cluster services. Scope and incomplete status remain visible.

@@ -17,7 +17,7 @@ def package(output):
                 continue
             if path.is_symlink():
                 raise ValueError(f"Inspect symlink before packaging: {path.relative_to(ROOT)}")
-            if path.is_file() and (path.suffix in {".py", ".java", ".sh", ".md", ".xml", ".yaml", ".hql", ".pig", ".txt"}
+            if path.is_file() and (path.suffix in {".py", ".java", ".sh", ".md", ".xml", ".yaml", ".hql", ".pig", ".txt", ".html"}
                                    or path.name in {"workers", "slaves"}):
                 files.append(path)
     output = Path(output)
