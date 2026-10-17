@@ -67,7 +67,8 @@ an indexed SQLite database on disk. Outputs are headerless UTF-8 TSV:
 | `join.sqlite` | Disk-backed dimension index; retained for inspection |
 
 Whitespace in analytical TSV strings is collapsed to keep one record per line.
-MongoDB retains original CSV strings. Empty category IDs stay null; missing
+MongoDB retains original CSV strings. Category values are nullable text, preserving both numeric IDs and source labels
+such as `Oils Edible`. Empty categories stay null; missing
 nutrient amounts are not treated as zero. Nonfinite amounts and missing references
 are recorded as rejects. Negative finite amounts are retained during preparation
 and explicitly filtered by MapReduce and Pig. Rejected records remain available

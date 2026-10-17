@@ -14,10 +14,6 @@ def clean_text(value):
     return " ".join(value.split()) or "unknown"
 
 
-def integer(value):
-    return int(value) if value.strip() else None
-
-
 def prepare(source, destination):
     destination = Path(destination)
     # A new directory prevents mixing stale and current outputs after interruption.
@@ -28,7 +24,7 @@ def prepare(source, destination):
         for required in ("food", "nutrient", "food_nutrient"):
             if required not in tables:
                 raise ValueError(f"Missing required CSV: {required}")
-        db.execute("CREATE TABLE food (id INTEGER PRIMARY KEY, type TEXT, category INTEGER)")
+        db.execute("CREATE TABLE food (id INTEGER PRIMARY KEY, type TEXT, category TEXT)")
         db.execute("CREATE TABLE nutrient (id INTEGER PRIMARY KEY, name TEXT, unit TEXT)")
         with (destination / "foods.tsv").open("w", newline="", encoding="utf-8") as out:
             writer = csv.writer(out, delimiter="\t", lineterminator="\n", quoting=csv.QUOTE_NONE, quotechar=None)
@@ -36,7 +32,7 @@ def prepare(source, destination):
                 for row in checked_rows(reader):
                     fid = int(row["fdc_id"])
                     kind = clean_text(row["data_type"])
-                    category = integer(row.get("food_category_id", ""))
+                    category = " ".join(row.get("food_category_id", "").split()) or None
                     db.execute("INSERT INTO food VALUES (?,?,?)", (fid, kind, category))
                     writer.writerow((fid, kind, clean_text(row["description"]), category if category is not None else ""))
                     counts["food"] += 1
@@ -72,6 +68,7 @@ def prepare(source, destination):
         "scope": "All source records scanned; no sampling or row limit. Raw CSVs retained in the ZIP.",
         "foods_columns": ["fdc_id", "data_type", "description", "food_category_id"],
         "food_nutrients_columns": ["fdc_id", "data_type", "food_category_id", "nutrient_id", "nutrient_name", "unit", "amount"],
+        "category_representation": "Source category IDs or labels preserved as nullable text.",
         "text_normalization": "Whitespace collapsed for Hadoop line records; original strings preserved by MongoDB import.",
     }
     (destination / "manifest.json").write_text(json.dumps(record, indent=2) + "\n")

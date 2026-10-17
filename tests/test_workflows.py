@@ -74,6 +74,17 @@ class WorkflowTests(unittest.TestCase):
         prepare(zero, self.path / "zero")
         self.assertEqual((self.path / "zero/foods.tsv").read_text().splitlines()[1].split("\t")[3], "0")
 
+    def test_category_labels_survive_preparation_and_join(self):
+        fixture(self.source, category="Oils Edible")
+        record = prepare(self.source, self.path / "prepared")
+        foods = (self.path / "prepared/foods.tsv").read_text().splitlines()
+        self.assertEqual(foods[1].split("\t")[3], "Oils Edible")
+        nutrients = (self.path / "prepared/food_nutrients.tsv").read_text().splitlines()
+        branded = [line.split("\t") for line in nutrients if line.startswith("20\t")]
+        self.assertEqual(len(branded), 1)
+        self.assertEqual(branded[0][2], "Oils Edible")
+        self.assertEqual(record["counts"]["written"], 4)
+
     def test_mapreduce_real_subprocesses(self):
         prepare(self.source, self.path / "prepared")
         data = (self.path / "prepared/food_nutrients.tsv").read_text()
