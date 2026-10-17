@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/
+results/
+.coverage
+infra/downloads/
+derby.log
+pig_*.log
+dist/

@@ -1,0 +1,43 @@
+name: fdc-track-b
+x-node: &node
+  image: python:3.11-bookworm@sha256:5887f265d8d44d8b4734d3658b21d668edf5aaf92e4945bc0c984afbfab105d3
+  working_dir: /project
+  entrypoint: [bash, /project/infra/entrypoint.sh]
+  environment:
+    JAVA_HOME: /opt/java
+    HADOOP_HOME: /opt/hadoop
+    HADOOP_PREFIX: /opt/hadoop
+    HADOOP_CONF_DIR: /opt/hadoop/etc/hadoop
+    HIVE_HOME: /opt/hive
+    PIG_HOME: /opt/pig
+    HADOOP_HEAPSIZE: '512'
+    HADOOP_CLIENT_OPTS: -Xmx512m
+    PATH: /opt/java/bin:/opt/hadoop/bin:/opt/hadoop/sbin:/opt/hive/bin:/opt/pig/bin:/usr/local/bin:/usr/bin:/bin
+services:
+  master:
+    <<: *node
+    hostname: master
+    command: master
+    mem_limit: 4g
+    volumes:
+      - ..:/project
+      - ../data/tools:/opt:ro
+      - ../data/cluster/master:/state
+  worker1:
+    <<: *node
+    hostname: worker1
+    command: worker
+    mem_limit: 4g
+    volumes:
+      - ..:/project
+      - ../data/tools:/opt:ro
+      - ../data/cluster/worker1:/state
+  worker2:
+    <<: *node
+    hostname: worker2
+    command: worker
+    mem_limit: 4g
+    volumes:
+      - ..:/project
+      - ../data/tools:/opt:ro
+      - ../data/cluster/worker2:/state
