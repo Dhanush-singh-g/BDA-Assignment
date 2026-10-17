@@ -149,3 +149,9 @@ MapReduce and Hive results without reimporting the full archive.
 The [Flask dashboard](docs/dashboard.md) reads recorded subset or full-run
 evidence, displays nutrient summaries and MongoDB/Hive benchmarks, and runs
 without the cluster services. Scope and incomplete status remain visible.
+
+## Short guides
+
+- [Laptop demo](docs/LAPTOP-DEMO.md)
+- [Three-system setup and full run](docs/THREE-SYSTEM-RUN.md)
+- [Architecture and operation](docs/ARCHITECTURE.md)
