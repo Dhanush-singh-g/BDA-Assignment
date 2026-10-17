@@ -20,7 +20,25 @@ from .report import generate
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def run_part1(archive, run_id, dataset_kind, mode="docker", repeats=5):
+def verify_existing_import(database, fingerprint, inventory):
+    """Verify reuse without changing raw collections or inventing an import stage."""
+    from .mongo import connect
+    client, db = connect(database)
+    try:
+        manifest = db.metadata.find_one({'_id': 'import', 'complete': True})
+        if (not manifest or manifest.get('dataset_kind') == 'development-subset' or
+                manifest.get('source_sha256') != fingerprint or set(manifest.get('tables', {})) != set(inventory)):
+            raise ValueError('Existing full import does not match the selected ZIP')
+        for table, count in manifest['tables'].items():
+            if db['raw_' + table].count_documents({}) != count:
+                raise ValueError('Existing import count differs: ' + table)
+        return manifest
+    finally:
+        client.close()
+
+
+def run_part1(archive, run_id, dataset_kind, mode="docker", repeats=5,
+              reuse_database=None, before_cluster=None):
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,40}", run_id) or repeats < 1:
         raise ValueError("Use a letter followed by at most 40 letters/digits/underscores and positive repeats")
     if dataset_kind not in {"full-release", "synthetic"} or mode not in {"docker", "client"}:
@@ -58,6 +76,9 @@ def run_part1(archive, run_id, dataset_kind, mode="docker", repeats=5):
         raise ValueError("Unsupported HDFS user/path")
     state["hdfs_root"] = hdfs_root
     database = "fdc_" + run_id
+    mongo_database = reuse_database or database
+    state['mongo_database'] = mongo_database
+    state['mongo_input_mode'] = 'verified-existing-import' if reuse_database else 'new-import'
 
     def save():
         temp = run_dir / "run.tmp"
@@ -152,11 +173,18 @@ def run_part1(archive, run_id, dataset_kind, mode="docker", repeats=5):
 
     save()
     try:
-        stage("cluster_verification", lambda: command(["bash", remote_path(ROOT / "scripts/verify_cluster.sh")], remote=True))
+        if before_cluster is None:
+            stage("cluster_verification", lambda: command(["bash", remote_path(ROOT / "scripts/verify_cluster.sh")], remote=True))
+        if reuse_database:
+            stage("mongo_full_import", lambda: verify_existing_import(mongo_database, state['source_sha256'], inventory))
         stage("prepare_all_records", lambda: command([sys.executable, "-m", "fdc", "prepare", "--archive", archive, "--output", prepared]))
-        stage("mongo_full_import", lambda: command([sys.executable, "-m", "fdc", "mongo-import", "--archive", archive, "--database", database]))
-        stage("mongo_analytics_and_profile", lambda: command([sys.executable, "-m", "fdc", "mongo-analytics", "--database", database,
+        if not reuse_database:
+            stage("mongo_full_import", lambda: command([sys.executable, "-m", "fdc", "mongo-import", "--archive", archive, "--database", mongo_database]))
+        stage("mongo_analytics_and_profile", lambda: command([sys.executable, "-m", "fdc", "mongo-analytics", "--database", mongo_database,
                                                            "--output", run_dir / "mongo", "--repeats", repeats]))
+        if before_cluster is not None:
+            stage("cluster_startup", before_cluster)
+            stage("cluster_verification", lambda: command(["bash", remote_path(ROOT / "scripts/verify_cluster.sh")], remote=True))
         command(["hdfs", "dfs", "-mkdir", "-p", hdfs_root.rsplit("/", 1)[0]], remote=True)
         stage("hdfs_file_operations", hdfs_operations)
         stage("yarn_streaming", lambda: command(["bash", remote_path(ROOT / "scripts/run_mapreduce.sh"),

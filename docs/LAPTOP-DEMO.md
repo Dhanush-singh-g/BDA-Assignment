@@ -27,26 +27,30 @@ Stop the dashboard with **Ctrl+C**. No data is deleted.
 
 ## 2. Run jobs using the website buttons
 
-The dashboard now has **Run on this laptop** controls:
+The dashboard opens in **View results**. Choose a saved analysis and click
+**Open results**. To process data, switch to the **Run analysis** tab.
 
-- To reuse your successful 50,000-food data, select `data/dev50k_export_01` under
-  **Reuse an existing subset**, then click **Run Hadoop / Pig / Hive only**.
-- To create a fresh run, leave the source as `fdc_home202410`, choose 10,000,
-  50,000 or 100,000 foods, and click **Run all three themes**. This creates a new
-  subset database, profiles MongoDB, exports data, then checks the other systems.
-- Service buttons switch between MongoDB/Hadoop or stop this project's services.
+- The source database is fixed to `fdc_home202410`; there is nothing to edit.
+- Choose 10,000, 50,000, 100,000, a custom size (1–100,000 foods), or **Entire
+  dataset**. Click **Start analysis**. Every food includes linked nutrients.
+- Subsets create separate databases/results. **Entire dataset** reuses the full
+  database, checks its records/hash against the original ZIP, runs every theme,
+  and generates a reconciled report with five measured Hive repetitions. It
+  does not duplicate the raw import. It rebuilds derived `foods` in the fixed DB.
+- Keep the ZIP in `data/raw/FoodData_Central_csv_2024-10-31.zip` or your existing
+  Windows Downloads location. Full-data mode prepares new files and uses extra
+  disk; it can take hours and is not yet validated on your full laptop dataset.
 
-The website switches services to save RAM. It runs one job at a time and shows
-stage status, recent logs, errors and an **Open completed results** link. Your
-old results stay intact. No full ZIP download/import is started by these controls.
-Keep Ubuntu running and the laptop awake. Closing a browser tab does not cancel
-the job; reopen the dashboard to see its history. Do not run Terminal jobs at the
-same time. For physical college machines, use the lab guide instead.
+To repeat your 50,000-food distributed check without MongoDB reprocessing, expand
+**Reuse prepared data or manage services**, select `data/dev50k_export_01`, and
+click **Run distributed checks**. Service buttons are in that optional section.
 
-A new workflow creates extra data each time. Reuse your existing export when you
-only need to repeat the distributed check. 100,000 foods remains a larger scale
-test, not a guaranteed fit. There is no force-cancel button; investigate failed/
-interrupted runs before starting another. No datasets are automatically deleted.
+**Analysis progress** shows stages/logs and links to completed results. The app
+switches services to save RAM and runs one UI job at a time. Keep Ubuntu running
+and the laptop awake; closing a tab does not cancel the job. Do not start Terminal
+jobs at the same time. There is no force-cancel button. Inspect failures before
+rerunning; old data is not deleted automatically. For physical college systems,
+use the separate lab guide; these controls manage the laptop Docker stack only.
 
 ## 3. Prefer Terminal commands?
 

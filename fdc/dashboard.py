@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 from pathlib import Path
 from flask import Flask, abort, jsonify, render_template, request
 from .hive_benchmark import read_result
-from .dashboard_jobs import JobManager, BusyError, exports
+from .dashboard_jobs import JobManager, BusyError, exports, full_archive, SOURCE_DATABASE
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -41,7 +41,7 @@ def evidence(folder, root=ROOT):
         source_hash = success.get('parent_source_sha256', manifest.get('source_sha256', 'Unavailable'))
     else:
         counts = manifest.get('counts', {})
-        source_hash = manifest.get('source_sha256', 'Unavailable')
+        source_hash = manifest.get('source_sha256', context.get('source_sha256', 'Unavailable'))
     timings = []
     for query in ('nutrient_summary', 'protein_summary'):
         for table in ('nutrients_text', 'nutrients_rcfile'):
@@ -78,13 +78,26 @@ def evidence(folder, root=ROOT):
             food_path = mongo_folder / 'foods_by_type.jsonl'
             if food_path.exists():
                 food_types = [json.loads(line) for line in food_path.read_text().splitlines() if line.strip()]
-    return dict(mongo_stats=mongo_stats, food_types=food_types, scope=scope, complete=completed, hive_complete=hive.get('complete', False),
+    return dict(food_count=manifest.get('counts', {}).get('food'), mongo_stats=mongo_stats, food_types=food_types, scope=scope, complete=completed, hive_complete=hive.get('complete', False),
                 source_sha256=source_hash, subset_sha256=success.get('subset_sha256') if success else None,
                 counts=counts, tables=manifest.get('counts', {}), timings=timings,
                 storage=hive.get('storage', {}), rows=rows,
                 method=hive.get('method', 'No completed benchmark available'),
-                topology=context.get('cluster_mode', 'single-host development containers'),
+                topology=context.get('deployment_kind', 'containers-one-host'),
                 recorded_at=hive.get('recorded_at', 'Unavailable'))
+
+
+def run_label(folder):
+    try:
+        if (folder / 'run.json').exists():
+            state = read(folder / 'run.json')
+            scope = 'Entire dataset' if state.get('dataset_kind') == 'full-release' else 'Synthetic test'
+            return scope + (' · Complete' if state.get('complete') else ' · Incomplete') + ' · ' + folder.name[-10:]
+        hive = read(folder / 'hive/benchmark.json')
+        foods = hive.get('source_manifest', {}).get('counts', {}).get('food')
+        return (f'{foods:,} foods' if foods is not None else 'Saved subset') + ' · Development · ' + folder.name[-10:]
+    except (OSError, ValueError, TypeError):
+        return 'Incomplete evidence · ' + folder.name[-10:]
 
 
 def create_app(root=ROOT):
@@ -110,7 +123,7 @@ def create_app(root=ROOT):
 
     @app.get('/api/control/jobs')
     def control_jobs():
-        return jsonify(jobs=manager.jobs(), exports=exports(root))
+        return jsonify(jobs=manager.jobs(), exports=exports(root), source_database=SOURCE_DATABASE, full_archive_available=full_archive(root) is not None)
 
     @app.post('/api/control/jobs')
     def control_start():
@@ -149,7 +162,8 @@ def create_app(root=ROOT):
             data['rows'] = [r for r in data['rows'] if query.lower() in
                             (r['food_type'] + ' ' + r['nutrient_id'] + ' ' + r['unit']).lower()]
         return render_template('dashboard.html', runs=runs, selected=selected,
-                               data=data, error=error, query=query, control_token=app.config['CONTROL_TOKEN'])
+                               data=data, error=error, query=query, control_token=app.config['CONTROL_TOKEN'],
+                               source_database=SOURCE_DATABASE, run_labels={key: run_label(folder) for key, folder in runs.items()})
 
     @app.get('/api/evidence')
     def api():

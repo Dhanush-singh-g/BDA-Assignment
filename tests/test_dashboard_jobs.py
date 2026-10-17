@@ -33,7 +33,9 @@ class ControlTests(unittest.TestCase):
         for payload in ({'action':'shell','command':'touch /tmp/unsafe'},
                         {'action':['workflow']},
                         {'action':'workflow','foods':50001,'source':'fdc_main'},
-                        {'action':'workflow','foods':True,'source':'fdc_main'},
+                        {'action':'workflow','foods':True},
+                        {'action':'workflow','foods':0},
+                        {'action':'workflow','foods':100001},
                         {'action':'workflow','foods':50000,'source':'fdc_foo; uname'},
                         {'action':'existing','export':'../../etc'}):
             self.assertEqual(self.client.post('/api/control/jobs',json=payload,headers=self.headers).status_code,400)
@@ -49,7 +51,7 @@ class ControlTests(unittest.TestCase):
 
     def test_background_launch_uses_fixed_argv_and_fresh_names(self):
         with patch('fdc.dashboard_jobs.subprocess.Popen') as launch:
-            response=self.client.post('/api/control/jobs',json={'action':'workflow','foods':50000,'source':'fdc_home202410'},headers=self.headers)
+            response=self.client.post('/api/control/jobs',json={'action':'workflow','foods':50000},headers=self.headers)
         self.assertEqual(response.status_code,202)
         args, kwargs=launch.call_args
         self.assertIn('fdc.dashboard_jobs',args[0])
@@ -58,6 +60,7 @@ class ControlTests(unittest.TestCase):
         self.assertEqual(len(kwargs['pass_fds']),1)
         state=response.json
         self.assertEqual(state['status'],'queued')
+        self.assertEqual(state['spec']['source'],'fdc_home202410')
         # With no real child holding a lock, stale queued jobs become interrupted.
         self.assertEqual(self.manager.jobs()[0]['status'],'interrupted')
 
@@ -102,3 +105,68 @@ class ControlTests(unittest.TestCase):
         with patch('fdc.dashboard_jobs.subprocess.Popen'):
             state=self.manager.submit({'action':'stop_services'})
         self.assertEqual(state['spec']['action'],'stop_services')
+
+    def test_custom_sizes_work_and_database_is_fixed(self):
+        with patch('fdc.dashboard_jobs.subprocess.Popen'):
+            response=self.client.post('/api/control/jobs',json={'action':'workflow','foods':25000},headers=self.headers)
+        self.assertEqual(response.status_code,202)
+        self.assertEqual(response.json['spec']['foods'],25000)
+        self.assertEqual(response.json['spec']['source'],'fdc_home202410')
+        response=self.client.post('/api/control/jobs',json={'action':'workflow','foods':10000,'source':'fdc_other'},headers=self.headers)
+        self.assertEqual(response.status_code,400)
+
+    def test_full_dataset_requires_zip_and_uses_fixed_source(self):
+        with patch('fdc.dashboard_jobs.full_archive',return_value=None):
+            response=self.client.post('/api/control/jobs',json={'action':'full_workflow'},headers=self.headers)
+        self.assertEqual(response.status_code,400)
+        folder=self.root/'data/raw';folder.mkdir(parents=True,exist_ok=True)
+        archive=folder/'FoodData_Central_csv_2024-10-31.zip';archive.write_bytes(b'fixture')
+        with patch('fdc.dashboard_jobs.subprocess.Popen'):
+            response=self.client.post('/api/control/jobs',json={'action':'full_workflow'},headers=self.headers)
+        self.assertEqual(response.status_code,202)
+        self.assertEqual(response.json['spec']['source'],'fdc_home202410')
+        self.assertEqual(response.json['spec']['archive'],str(archive))
+        self.assertEqual(response.json['spec']['dataset_kind'],'full-release')
+
+    def test_full_worker_reuses_import_and_selects_full_driver(self):
+        job_id='d'*32;folder=self.manager.path(job_id);folder.mkdir()
+        write(folder/'state.json',dict(id=job_id,status='queued',spec={'action':'full_workflow','archive':'/fixture.zip'},stages=[]))
+        worker=Worker(self.root,job_id)
+        with patch.object(worker,'check_tools'), patch.object(worker,'start_mongo'), patch('fdc.part1.run_part1') as run:
+            worker.run()
+        self.assertEqual(json.loads((folder/'state.json').read_text())['status'],'succeeded')
+        self.assertEqual(run.call_args.kwargs['reuse_database'],'fdc_home202410')
+        self.assertEqual(run.call_args.kwargs['repeats'],5)
+        self.assertTrue(callable(run.call_args.kwargs['before_cluster']))
+        self.assertTrue(json.loads((folder/'state.json').read_text())['result'].startswith('results/fullui_'))
+
+    def test_existing_import_verifier_rejects_mismatch_and_checks_counts(self):
+        from fdc.part1 import verify_existing_import
+        client=MagicMock(); db=MagicMock()
+        db.metadata.find_one.return_value={'complete':True,'source_sha256':'a'*64,'tables':{'food':2}}
+        db.__getitem__.return_value.count_documents.return_value=2
+        with patch('fdc.mongo.connect',return_value=(client,db)):
+            verify_existing_import('fdc_home202410','a'*64,{'food':{}})
+        client.close.assert_called_once()
+        with patch('fdc.mongo.connect',return_value=(client,db)):
+            with self.assertRaises(ValueError): verify_existing_import('fdc_home202410','b'*64,{'food':{}})
+        db.__getitem__.return_value.count_documents.return_value=1
+        with patch('fdc.mongo.connect',return_value=(client,db)):
+            with self.assertRaises(ValueError): verify_existing_import('fdc_home202410','a'*64,{'food':{}})
+        db.metadata.find_one.return_value['dataset_kind']='development-subset'
+        with patch('fdc.mongo.connect',return_value=(client,db)):
+            with self.assertRaises(ValueError): verify_existing_import('fdc_home202410','a'*64,{'food':{}})
+
+    def test_full_progress_and_logs_are_read_from_results_directory(self):
+        folder=self.manager.path('e'*32);folder.mkdir()
+        write(folder/'state.json',dict(id='e'*32,status='failed',spec={'action':'full_workflow'},stages=[]))
+        write(folder/'evidence.json',{'run_directory':'results/fullui_test'})
+        result=self.root/'results/fullui_test';(result/'hive').mkdir(parents=True)
+        write(result/'run.json',{'stages':[{'name':'hive_benchmark','status':'failed'}]})
+        write(result/'hive/progress.json',{'runs':[{}],'complete':False})
+        (result/'cluster.log').write_text('Saved full-run diagnostics')
+        state=self.manager.jobs()[0]
+        self.assertEqual(state['hive_progress']['expected'],24)
+        self.assertEqual(state['hive_progress']['completed'],1)
+        self.assertEqual(state['analysis_stages'][0]['name'],'hive_benchmark')
+        self.assertIn('Saved full-run diagnostics',self.manager.log('e'*32))

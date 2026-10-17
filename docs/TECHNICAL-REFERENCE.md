@@ -145,9 +145,9 @@ capture actual worker task placement for the final physical deployment.
 ## Local job controls
 
 The dashboard's optional controls execute fixed laptop workflows; the saved
-results view remains usable without services. `Run all three themes` creates a
+results view remains usable without services. `Run analysis → Start analysis` with a subset size creates a
 new linked subset from an existing full MongoDB import, runs profiles, exports,
-switches to Hadoop and reconciles MapReduce/Pig/Hive. `Reuse an existing subset`
+switches to Hadoop and reconciles MapReduce/Pig/Hive. `Reuse prepared data or manage services → Run distributed checks`
 requires matching saved MongoDB scope, selection and table counts. Actions also
 start MongoDB (stop Hadoop), start Hadoop (stop MongoDB), or stop project services.
 
@@ -171,3 +171,17 @@ Do not launch manual jobs at the same time or retry an interrupted job without
 checking for still-running database/YARN work. Disk checks see the Linux virtual
 filesystem; also check actual Windows drive free space. No free-space check can
 guarantee a larger run will fit.
+
+The UI source is fixed to `fdc_home202410` (including server-side validation).
+Custom subset limits are 1–100,000 foods. **Entire dataset** uses the full Part 1
+pipeline with the existing import verified against the ZIP's fingerprint,
+complete CSV inventory and actual collection counts. The original ZIP is located
+at `data/raw/FoodData_Central_csv_2024-10-31.zip` first, then the known Windows
+Downloads path. No arbitrary archive path/database is accepted by the UI API.
+Full mode rebuilds the derived `foods` collection but leaves raw imports intact.
+It runs MongoDB first, switches to Hadoop, creates new Hive/HDFS/results namespaces
+and generates the full report. The driver records `mongo_input_mode` as
+`verified-existing-import`; it does not claim a new ingestion happened. Five
+measured repetitions plus warmups produce 24 Hive executions in this mode.
+Full-data progress is read from the driver's `run.json` and Hive progress files.
+The fixed database/ZIP must already exist; installation and import remain separate.

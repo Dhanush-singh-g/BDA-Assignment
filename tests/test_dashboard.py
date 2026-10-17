@@ -57,3 +57,12 @@ class DashboardTests(unittest.TestCase):
         data = self.client.get('/api/evidence?run=results/full_run').json
         self.assertEqual(data['scope'],'full-release')
         self.assertFalse(data['complete'])
+
+    def test_simplified_tabs_and_noneditable_source(self):
+        html=self.client.get('/').data
+        self.assertIn(b'View results',html)
+        self.assertIn(b'Run analysis',html)
+        self.assertIn(b'Entire dataset',html)
+        self.assertIn(b'Choose another size',html)
+        self.assertNotIn(b'id="source-db"',html)
+        self.assertIn(b'fdc_home202410',html)

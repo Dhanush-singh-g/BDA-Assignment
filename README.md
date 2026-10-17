@@ -34,8 +34,9 @@ Dataset: [entire October 31, 2024 CSV package](https://fdc.nal.usda.gov/fdc-data
 - **Still pending:** full-data analytics/benchmarks, three physical college
   systems, final report and presentation evidence.
 
-The dashboard also offers laptop job controls: run a new subset workflow, reuse
-an existing export, switch services, and monitor progress/errors. See the
+The dashboard separates **View results** from **Run analysis**. Choose a subset,
+a custom size, or the entire dataset using the fixed source database. Optional
+controls reuse exports and switch services; progress/errors update automatically. See the
 [laptop guide](docs/LAPTOP-DEMO.md).
 
 The production workflow has no sampling limit. Development-subset commands are

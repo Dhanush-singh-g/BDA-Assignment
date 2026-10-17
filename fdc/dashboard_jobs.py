@@ -12,9 +12,21 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-SIZES = (10000, 50000, 100000)
-ACTIONS = {'workflow', 'existing', 'start_mongo', 'start_cluster', 'stop_services'}
+SOURCE_DATABASE = 'fdc_home202410'
+ARCHIVE_NAME = 'FoodData_Central_csv_2024-10-31.zip'
+ACTIONS = {'full_workflow', 'workflow', 'existing', 'start_mongo', 'start_cluster', 'stop_services'}
 COMPOSE = ['docker', 'compose', '-f', 'infra/compose.yaml']
+
+
+
+def full_archive(root):
+    candidates = [Path(root) / 'data/raw' / ARCHIVE_NAME,
+                  Path('/mnt/c/Users/dhanu/Downloads') / ARCHIVE_NAME]
+    return next((p.resolve() for p in candidates if p.is_file()), None)
+
+
+def run_path(name):
+    return isinstance(name, str) and bool(re.fullmatch(r'(?:data/realdev_[0-9]+|results/[A-Za-z][A-Za-z0-9_]{0,40})', name))
 
 
 def now():
@@ -75,7 +87,7 @@ class JobManager:
         return self.directory / job_id
 
     def submit(self, payload):
-        if not isinstance(payload, dict) or set(payload) - {'action', 'foods', 'source', 'export'}:
+        if not isinstance(payload, dict) or set(payload) - {'action', 'foods', 'export'}:
             raise ValueError('Unsupported job fields')
         action = payload.get('action')
         if not isinstance(action, str) or action not in ACTIONS:
@@ -83,12 +95,14 @@ class JobManager:
         spec = {'action': action}
         if action == 'workflow':
             size = payload.get('foods')
-            source = payload.get('source', '')
-            if type(size) is not int or size not in SIZES:
-                raise ValueError('Choose 10,000, 50,000 or 100,000 foods')
-            if not isinstance(source, str) or not re.fullmatch(r'fdc_[A-Za-z0-9_]{1,70}', source):
-                raise ValueError('Enter an existing fdc_<name> source database')
-            spec.update(foods=size, source=source)
+            if type(size) is not int or not 1 <= size <= 100000:
+                raise ValueError('Choose 1–100,000 foods, or Entire dataset')
+            spec.update(foods=size, source=SOURCE_DATABASE)
+        if action == 'full_workflow':
+            archive = full_archive(self.root)
+            if archive is None:
+                raise ValueError('Full ZIP not found. Copy the October 2024 ZIP to data/raw/ or keep it in your Windows Downloads folder.')
+            spec.update(source=SOURCE_DATABASE, archive=str(archive), dataset_kind='full-release')
         if action == 'existing':
             name = payload.get('export')
             selected = exports(self.root).get(name) if isinstance(name, str) else None
@@ -147,13 +161,17 @@ class JobManager:
                     marker = path.parent / 'evidence.json'
                     if marker.exists():
                         evidence = read(marker).get('run_directory')
-                        if isinstance(evidence, str) and re.fullmatch(r'data/realdev_[0-9]+', evidence):
+                        if run_path(evidence):
                             state['evidence'] = evidence
                             progress = self.root / evidence / 'hive/progress.json'
                             if progress.is_file():
                                 recorded = read(progress)
                                 state['hive_progress'] = {'completed': len(recorded.get('runs', [])),
-                                                          'expected': 8, 'complete': recorded.get('complete', False)}
+                                                          'expected': 24 if state['spec']['action'] == 'full_workflow' else 8, 'complete': recorded.get('complete', False)}
+                    if state.get('evidence', '').startswith('results/'):
+                        context = self.root / state['evidence'] / 'run.json'
+                        if context.is_file():
+                            state['analysis_stages'] = read(context).get('stages', [])
                     states.append(state)
                 except (OSError, ValueError, KeyError):
                     continue
@@ -169,7 +187,7 @@ class JobManager:
         marker = folder / 'evidence.json'
         if marker.exists():
             name = read(marker).get('run_directory', '')
-            if re.fullmatch(r'data/realdev_[0-9]+', name):
+            if run_path(name):
                 paths.append(self.root / name / 'cluster.log')
         chunks = []
         for path in paths:
@@ -291,6 +309,18 @@ class Worker:
                     if previous.get('status') in {'queued', 'running', 'interrupted'}:
                         previous.update(status='interrupted', recovered_at=now())
                         write(path, previous)
+            elif action == 'full_workflow':
+                from .part1 import run_part1
+                if shutil.disk_usage(self.root).free < 2 * 1024**3:
+                    raise ValueError('Less than 2 GiB free; free space before running')
+                self.stage('Start MongoDB for full-dataset analysis', self.start_mongo)
+                run_id = 'fullui_' + self.state['id'][:20]
+                result = 'results/' + run_id
+                write(self.folder / 'evidence.json', {'run_directory': result})
+                self.stage('Analyze and reconcile the entire dataset', lambda: run_part1(
+                    self.spec['archive'], run_id, 'full-release', mode='docker', repeats=5,
+                    reuse_database=SOURCE_DATABASE, before_cluster=self.cluster))
+                self.state['result'] = result
             elif action == 'existing':
                 self.distributed(self.spec['subset'], self.spec['mongo_results'])
             else:

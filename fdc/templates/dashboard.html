@@ -3,96 +3,125 @@
 <title>FoodData | Track B analytics</title>
 <style>
 :root{font-family:system-ui,sans-serif;color:#172c35;background:#f3f6f5}*{box-sizing:border-box}body{margin:0}main{max-width:1150px;margin:auto;padding:36px 22px}header{display:flex;justify-content:space-between;gap:20px;align-items:center}h1{font-size:34px;letter-spacing:-1px;margin:5px 0}h2{font-size:21px}p{line-height:1.6}.eyebrow{color:#247365;font-weight:700;font-size:12px;letter-spacing:2px}.badge{background:#dcece6;padding:8px 12px;border-radius:20px;font-size:13px}.notice{background:#fff2d8;border-left:4px solid #b47d1d;padding:14px 18px;margin:24px 0}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}.card,section{background:white;border:1px solid #dce5e1;border-radius:12px;padding:22px;margin-bottom:18px}.number{font-size:29px;font-weight:700;margin-top:10px}.muted,small{color:#526a72}select,input,button{font:inherit;padding:10px;border:1px solid #a9bfba;border-radius:6px;max-width:100%}button:disabled{opacity:.5;cursor:wait}button{background:#176958;color:white;cursor:pointer}form{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:18px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:12px;border-bottom:1px solid #e4ebe8}th{color:#526a72}.scroll{overflow:auto;max-height:500px}.bar{height:10px;background:#19836d;border-radius:5px;min-width:2px}.benchmark{display:grid;grid-template-columns:1fr 2fr 100px;align-items:center;gap:16px;margin:16px 0}code{overflow-wrap:anywhere;font-size:12px}footer{color:#526a72;font-size:13px;margin-top:20px}@media(max-width:600px){header{display:block}.benchmark{grid-template-columns:1fr}h1{font-size:28px}}
+.tabs{display:flex;gap:8px;margin:10px 0 26px;border-bottom:1px solid #dce5e1;padding-bottom:12px}.tab{background:transparent;color:#526a72;border:none;border-radius:8px}.tab.active{background:#176958;color:white}.source-note{background:#f1f7f4;padding:14px 18px;border-radius:8px;margin:20px 0}.primary{padding:13px 24px}.secondary{background:white;color:#176958}.extras{border-top:1px solid #dce5e1;padding:20px 0;margin-top:24px}summary{cursor:pointer;font-weight:600}.progress-box{background:#f8faf9;border:1px solid #dce5e1;border-radius:10px;padding:20px;margin-top:22px}#job-summary{margin:16px 0;overflow-wrap:anywhere}#job-stages{line-height:1.9;padding-left:22px}#job-log{max-height:340px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#142f35;color:#e0f0e8;padding:16px;border-radius:8px}.result-link{display:inline-block;margin:12px 0;color:#176958;font-weight:700}[hidden]{display:none!important}select{min-width:0}form>div{max-width:100%}
 </style></head><body><main>
-<header><div><div class="eyebrow">USDA FOODDATA CENTRAL · OCTOBER 2024</div><h1>Food & performance explorer</h1><p class="muted">Track B · Part 2 · Recorded analytics</p></div><span class="badge">Saved results + laptop controls</span></header>
-<section id="controls"><h2>Run on this laptop</h2>
-<p class="muted">Run one job at a time. The workflow switches between MongoDB and Hadoop to save RAM. Your full import and existing results stay intact. New runs create extra data; check disk space first. Do not launch Terminal jobs at the same time.</p>
-<form id="new-job"><label for="source-db">Existing full database</label><input id="source-db" value="fdc_home202410" required pattern="fdc_[A-Za-z0-9_]+" aria-label="Source database"><label for="size">Foods</label><select id="size"><option value="10000">10,000</option><option value="50000" selected>50,000</option><option value="100000">100,000 (1 lakh)</option></select><button type="submit" class="job-button">Run all three themes</button></form>
-<p><small>Includes all linked nutrient records. Uses your existing full MongoDB import; it does not download or import the full ZIP. A 100,000-food run has not yet been validated on your laptop.</small></p>
-<form id="existing-job"><label for="export-choice">Reuse an existing subset</label><select id="export-choice"><option value="">Loading exports…</option></select><button class="job-button">Run Hadoop / Pig / Hive only</button></form>
-<div class="service-buttons"><button type="button" class="job-button" data-action="start_mongo">Start MongoDB (stop Hadoop)</button> <button type="button" class="job-button" data-action="start_cluster">Start Hadoop (stop MongoDB)</button> <button type="button" class="job-button" data-action="stop_services">Stop project services</button></div>
-<p id="control-message" role="status" aria-live="polite">Checking job history…</p>
-<label for="job-choice">Job history</label> <select id="job-choice" aria-label="Job history"></select>
-<div id="job-summary"></div><ol id="job-stages"></ol><a id="open-job-result" hidden>Open completed results</a>
-<details><summary>Progress and errors</summary><pre id="job-log" style="max-height:360px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#142f35;color:#e0f0e8;padding:16px;border-radius:8px">Select a job to see its logs.</pre></details>
-<p><small>Controls manage only this project's laptop Docker services. For three physical college machines, follow the lab guide. Jobs continue if you close the browser; keep Ubuntu and the laptop awake. There is no force-cancel button.</small></p>
+<header><div><div class="eyebrow">USDA FOODDATA CENTRAL · OCTOBER 2024</div><h1>Food & performance explorer</h1><p class="muted">Track B · Part 2 · Recorded analytics</p></div><span class="badge">Food analytics dashboard</span></header>
+<nav class="tabs" aria-label="Dashboard views"><button type="button" id="results-tab" class="tab active" aria-pressed="true">View results</button><button type="button" id="analysis-tab" class="tab" aria-pressed="false">Run analysis</button></nav>
+<section id="controls" hidden>
+<div class="eyebrow">NEW ANALYSIS</div><h2>How much data do you want to process?</h2>
+<p class="muted">Choose a size and start. MongoDB, Hadoop, Pig and Hive run in order; progress appears below.</p>
+<div class="source-note"><strong>USDA FoodData Central · October 2024</strong><br><small>Source database: <code>{{source_database}}</code> · Fixed</small></div>
+<form id="new-job"><div><label for="size">Dataset size</label><br><select id="size"><option value="10000">10,000 foods — small test</option><option value="50000" selected>50,000 foods — tested on your laptop</option><option value="100000">100,000 foods — larger test</option><option value="custom">Choose another size…</option><option value="full">Entire dataset — all foods</option></select></div><div id="custom-size-wrap" hidden><label for="custom-size">Number of foods</label><br><input id="custom-size" type="number" min="1" max="100000" value="25000" step="1"></div><button type="submit" class="job-button primary">Start analysis</button></form>
+<p id="size-help" class="muted"></p>
+<p id="archive-message" class="muted" hidden></p>
+<p><small>Every selected food includes its linked nutrient observations. New runs preserve your old results and use extra disk space. Keep Ubuntu open and your laptop awake; do not run Terminal jobs at the same time.</small></p>
+<details class="extras"><summary>Reuse prepared data or manage services</summary>
+<p>Already analyzed a subset in MongoDB? Reuse its export to repeat only Hadoop, Pig and Hive.</p>
+<form id="existing-job"><label for="export-choice">Prepared subset</label><select id="export-choice"><option value="">Loading…</option></select><button class="job-button">Run distributed checks</button></form>
+<div class="service-buttons"><button type="button" class="job-button secondary" data-action="start_mongo">Start MongoDB</button> <button type="button" class="job-button secondary" data-action="start_cluster">Start Hadoop</button> <button type="button" class="job-button secondary" data-action="stop_services">Stop project services</button></div>
+<p><small>Starting MongoDB stops Hadoop; starting Hadoop stops MongoDB. These controls manage this laptop's Docker services. Use the lab guide for three physical machines.</small></p>
+</details>
+<div class="progress-box"><h2>Analysis progress</h2><p id="control-message" role="status" aria-live="polite">Checking job history…</p>
+<label for="job-choice">Recent activity</label> <select id="job-choice" aria-label="Job history"></select>
+<div id="job-summary"></div><ol id="job-stages"></ol><a id="open-job-result" class="result-link" hidden>View completed results →</a>
+<details><summary>Show technical logs</summary><pre id="job-log">Select an analysis to see its logs.</pre></details></div>
+<p><small>Only one UI job runs at a time. Closing the browser does not cancel it. There is no force-cancel button.</small></p>
 </section>
 <script>
 (() => {
   const token = {{control_token|tojson}};
   const message = document.getElementById('control-message');
   const choice = document.getElementById('job-choice');
-  let states = [], chosen = '', polling = false;
+  const size = document.getElementById('size');
+  let states = [], chosen = '', polling = false, starting = false, archiveAvailable = null;
+  const names={workflow:'Subset analysis',full_workflow:'Entire dataset',existing:'Distributed checks',start_mongo:'Start MongoDB',start_cluster:'Start Hadoop',stop_services:'Stop services'};
+  const stageNames={cluster_startup:'Start Hadoop and wait for services',prepare_all_records:'Prepare every source record',mongo_full_import:'Verify the existing full MongoDB import',mongo_analytics_and_profile:'MongoDB summaries and index comparison',cluster_verification:'Verify both Hadoop workers',hdfs_file_operations:'HDFS upload and file checks',yarn_streaming:'MapReduce analysis',pig_cleaning:'Pig cleaning',hive_tables:'Build Hive Text and RCFile tables',hive_benchmark:'Compare Hive queries',cross_system_reconciliation_and_report:'Verify answers and generate report'};
+  function showPanel(which) {
+    document.getElementById('controls').hidden=which!=='analysis';
+    document.getElementById('results-view').hidden=which!=='results';
+    ['results','analysis'].forEach(name=>{const b=document.getElementById(name+'-tab');b.classList.toggle('active',name===which);b.setAttribute('aria-pressed',String(name===which));});
+  }
+  document.getElementById('results-tab').addEventListener('click',()=>showPanel('results'));
+  document.getElementById('analysis-tab').addEventListener('click',()=>showPanel('analysis'));
+  function sizeHelp() {
+    const full=size.value==='full';
+    document.getElementById('custom-size-wrap').hidden=size.value!=='custom';
+    document.getElementById('custom-size').required=size.value==='custom';
+    document.getElementById('size-help').textContent=full ? 'Processes every food and nutrient record, verifies the ZIP against your fixed database, and uses five measured Hive runs per query/format. This full workload has not been validated on your laptop and can take hours.' : 'Runs all three themes on a labelled development subset. Custom sizes can be 1–100,000 foods. Includes MongoDB profiling and a short Hive comparison.';
+    const note=document.getElementById('archive-message');
+    note.hidden=!full;
+    note.textContent=archiveAvailable===false ? 'Original ZIP not found. Place FoodData_Central_csv_2024-10-31.zip in data/raw/ or keep it in your Windows Downloads folder before starting.' : 'Uses the original ZIP from data/raw/ or your Windows Downloads folder. Reuses the completed MongoDB import; no duplicate raw import.';
+  }
+  size.addEventListener('change',sizeHelp);sizeHelp();
   async function start(payload) {
-    document.querySelectorAll('.job-button').forEach(b => b.disabled = true);
-    message.textContent = 'Starting…';
+    if(starting) return;
+    starting=true;
+    document.querySelectorAll('.job-button').forEach(b=>b.disabled=true);
+    message.textContent='Starting analysis…';
     try {
-      const response = await fetch('/api/control/jobs', {method:'POST', headers:{'Content-Type':'application/json','X-Control-Token':token}, body:JSON.stringify(payload)});
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Could not start job. Reload the page if your session expired.');
-      chosen = data.id;
-      message.textContent = 'Job started. Progress will update automatically.';
-    } catch (error) {message.textContent = error.message;}
+      const response=await fetch('/api/control/jobs',{method:'POST',headers:{'Content-Type':'application/json','X-Control-Token':token},body:JSON.stringify(payload)});
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.error||'Could not start. Reload this page and try again.');
+      chosen=data.id;message.textContent='Started. You can follow each stage below.';
+    } catch(error) {message.textContent=error.message;}
+    finally {starting=false;}
     await refresh();
   }
-  document.getElementById('new-job').addEventListener('submit', e => {e.preventDefault(); start({action:'workflow', foods:Number(document.getElementById('size').value), source:document.getElementById('source-db').value.trim()});});
-  document.getElementById('existing-job').addEventListener('submit', e => {e.preventDefault(); start({action:'existing', export:document.getElementById('export-choice').value});});
-  document.querySelectorAll('[data-action]').forEach(b => b.addEventListener('click', () => start({action:b.dataset.action})));
-  choice.addEventListener('change', () => {chosen=choice.value; refresh();});
+  document.getElementById('new-job').addEventListener('submit',e=>{e.preventDefault();start(size.value==='full' ? {action:'full_workflow'} : {action:'workflow',foods:Number(size.value==='custom'?document.getElementById('custom-size').value:size.value)});});
+  document.getElementById('existing-job').addEventListener('submit',e=>{e.preventDefault();start({action:'existing',export:document.getElementById('export-choice').value});});
+  document.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>start({action:b.dataset.action})));
+  choice.addEventListener('change',()=>{chosen=choice.value;refresh();});
   async function refresh() {
-    if (polling) return;
-    polling = true;
+    if(polling)return;
+    polling=true;
     try {
-      const response = await fetch('/api/control/jobs');
-      if (!response.ok) throw new Error('Could not load job status');
-      const data = await response.json();
-      states = data.jobs;
-      const active = states.find(j => ['queued','running'].includes(j.status));
-      document.querySelectorAll('.job-button').forEach(b => b.disabled = !!active);
-      const exports = document.getElementById('export-choice');
-      const oldExport=exports.value;
-      exports.replaceChildren();
-      Object.entries(data.exports).forEach(([key,item]) => exports.add(new Option(item.foods.toLocaleString()+' foods · '+key, key)));
-      if (!exports.options.length) exports.add(new Option('No matching export yet',''));
-      if ([...exports.options].some(o => o.value === oldExport)) exports.value=oldExport;
+      const response=await fetch('/api/control/jobs');
+      if(!response.ok)throw new Error('Could not load analysis progress');
+      const data=await response.json();states=data.jobs;archiveAvailable=data.full_archive_available;sizeHelp();
+      const active=states.find(j=>['queued','running'].includes(j.status));
+      document.querySelectorAll('.job-button').forEach(b=>b.disabled=!!active||starting);
+      const exp=document.getElementById('export-choice'),old=exp.value;
+      exp.replaceChildren();
+      Object.entries(data.exports).forEach(([key,item])=>exp.add(new Option(item.foods.toLocaleString()+' foods · '+key.split('/').pop(),key)));
+      if(!exp.options.length)exp.add(new Option('No prepared subset available',''));
+      if([...exp.options].some(o=>o.value===old))exp.value=old;
       choice.replaceChildren();
-      states.forEach(j => choice.add(new Option(j.spec.action+(j.spec.foods ? ' · up to '+j.spec.foods.toLocaleString()+' foods' : '')+' · '+j.status+' · '+new Date(j.created_at).toLocaleString(), j.id)));
-      if (!chosen || !states.some(j => j.id===chosen)) chosen=states[0]?.id || '';
+      states.forEach(j=>choice.add(new Option((names[j.spec.action]||'Analysis')+(j.spec.foods?' · '+j.spec.foods.toLocaleString()+' foods':'')+' · '+j.status+' · '+new Date(j.created_at).toLocaleString(),j.id)));
+      if(!chosen||!states.some(j=>j.id===chosen))chosen=active?.id||states.find(j=>j.result)?.id||states[0]?.id||'';
       choice.value=chosen;
-      const job=states.find(j => j.id===chosen);
-      const summary=document.getElementById('job-summary');
-      const stages=document.getElementById('job-stages');
-      const link=document.getElementById('open-job-result');
-      stages.replaceChildren(); link.hidden=true;
-      if (job) {
-        summary.textContent='Status: '+job.status+(job.error ? ' · '+job.error : '')+(job.hive_progress ? ' · Hive queries: '+job.hive_progress.completed+'/'+job.hive_progress.expected : '');
-        job.stages.forEach(s => {const li=document.createElement('li');li.textContent=s.name+' — '+s.status; stages.appendChild(li);});
-        if(job.status==='succeeded' && job.result) {link.href='/?run='+encodeURIComponent(job.result); link.hidden=false;}
+      const job=states.find(j=>j.id===chosen),summary=document.getElementById('job-summary'),stages=document.getElementById('job-stages'),link=document.getElementById('open-job-result');
+      stages.replaceChildren();link.hidden=true;
+      if(job) {
+        summary.textContent='Status: '+job.status+(job.error?' · '+job.error:'')+(job.hive_progress?' · Hive queries: '+job.hive_progress.completed+'/'+job.hive_progress.expected:'');
+        const items=job.analysis_stages?.length?job.analysis_stages:job.stages;
+        items.forEach(s=>{const li=document.createElement('li');li.textContent=(stageNames[s.name]||s.name)+' — '+s.status;stages.appendChild(li);});
+        if(job.status==='succeeded'&&job.result){link.href='/?run='+encodeURIComponent(job.result);link.hidden=false;}
         const logs=await fetch('/api/control/jobs/'+encodeURIComponent(job.id)+'/log');
-        if(logs.ok) document.getElementById('job-log').textContent=(await logs.json()).log || 'Waiting for output…';
-      } else {summary.textContent='No jobs launched from the UI yet.';}
-      if (active) message.textContent='A job is running. Current stage and recent logs update below.';
-      else if (message.textContent==='Checking job history…' || message.textContent.startsWith('A job is running.')) message.textContent='Ready. Select an existing export to avoid copying and analyzing the same subset again.';
-    } catch (error) {message.textContent=error.message;}
+        if(logs.ok)document.getElementById('job-log').textContent=(await logs.json()).log||'Waiting for output…';
+      } else summary.textContent='No analysis started from the UI yet.';
+      if(active)message.textContent='Analysis is running. Stages and logs update automatically.';
+      else if(message.textContent==='Checking job history…'||message.textContent.startsWith('Analysis is running.'))message.textContent='Ready. Choose a dataset size above, or view your saved results.';
+    } catch(error) {message.textContent=error.message;}
     finally {polling=false;}
   }
-  refresh(); setInterval(refresh, 4000);
+  refresh();setInterval(refresh,4000);
 })();
 </script>
-
-<form method="get"><label for="run">Evidence run</label><select name="run" id="run">{% for run in runs %}<option value="{{run}}" {% if run==selected %}selected{% endif %}>{{run}}</option>{% endfor %}</select><button>Load run</button></form>
+<div id="results-view">
+<form method="get"><label for="run">Saved analysis</label><select name="run" id="run">{% for run in runs %}<option value="{{run}}" {% if run==selected %}selected{% endif %}>{{run_labels[run]}}</option>{% endfor %}</select><button>Open results</button></form>
 {% if error %}<p role="alert" class="notice">{{error}}</p>{% endif %}
 {% if not runs %}<section><h2>No recorded runs found</h2><p>Complete a subset integration run or a full Part 1 run to populate this dashboard. No example measurements are substituted.</p></section>{% endif %}
 {% if data %}
-<div class="notice"><strong>Scope: {{data.scope}}</strong><br>Run status: {{'completed' if data.complete else 'incomplete'}}. Physical three-system deployment and full-data submission completion require separate evidence. Subset results do not establish full-release performance.</div>
-<div class="cards">{% for name,value in data.counts.items() %}<div class="card"><small>{{name.replace('_',' ').title()}}</small><div class="number">{{'{:,}'.format(value) if value is number else value}}</div></div>{% endfor %}</div>
+<div class="notice"><strong>{{'Entire dataset' if data.scope=='full-release' else ('Synthetic test' if 'synthetic' in data.scope else 'Development subset')}}</strong> · {{'Completed' if data.complete else 'Incomplete'}}<br><small>{{'Physical college-cluster evidence is separate from this saved run.' if data.scope=='full-release' else 'These results describe the selected records, not the entire release.'}}</small></div>
+{% set labels={'prepared_rows':'Nutrient records prepared','negative_filtered':'Negative values excluded','clean_rows':'Records analyzed','food':'Foods','nutrient':'Nutrient definitions','food_nutrient':'Source nutrient records','written':'Prepared records','rejected':'Rejected records'} %}
+<div class="cards">{% if data.food_count and 'food' not in data.counts %}<div class="card"><small>Foods</small><div class="number">{{'{:,}'.format(data.food_count)}}</div></div>{% endif %}{% for name,value in data.counts.items() %}<div class="card"><small>{{labels.get(name,name.replace('_',' ').title())}}</small><div class="number">{{'{:,}'.format(value) if value is number else value}}</div></div>{% endfor %}</div>
 <section><h2>MongoDB index comparison</h2><p class="muted">Same query with forced collection and index scans. Median server milliseconds; zero means below timer resolution.</p><div class="scroll"><table><thead><tr><th>Plan</th><th>Runs</th><th>Documents examined</th><th>Median time</th></tr></thead><tbody>{% for item in data.mongo_stats %}<tr><td>{{item.mode}}</td><td>{{item.runs}}</td><td>{{item.documents}}</td><td>{{item.milliseconds}} ms</td></tr>{% else %}<tr><td colspan="4">Matching MongoDB evidence is unavailable.</td></tr>{% endfor %}</tbody></table></div><p>{% for item in data.food_types %}<span class="badge">{{item.data_type}}: {{'{:,}'.format(item.foods)}}</span> {% endfor %}</p></section>
 <section><h2>Hive query timings</h2><p class="muted">Median measured elapsed time; warmups excluded. {{data.method}}</p>
 {% set maximum = data.timings|map(attribute='median')|max if data.timings else 1 %}
 {% for item in data.timings %}<div class="benchmark"><div>{{item.query.replace('_',' ').title()}}<br><small>{{item.table}} · {{item.runs}} measured run(s)</small></div><div class="bar" style="width:{{100*item.median/maximum if maximum else 0}}%"></div><strong>{{'%.2f'|format(item.median)}} s</strong></div>{% else %}<p>No measured timings available.</p>{% endfor %}</section>
 <section><h2>Storage comparison</h2><p class="muted">Logical bytes compare formats; consumed bytes include HDFS replication.</p><div class="scroll"><table><thead><tr><th>Format</th><th>Recorded storage measurements</th></tr></thead><tbody>{% for name,values in data.storage.items() %}<tr><td>{{name}}</td><td>{% for key,value in values.items() %}{{key}}: {{value}}{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>{% endfor %}</tbody></table></div></section>
-<section><h2>Nutrient observations</h2><p class="muted">Means describe observations within a food type and nutrient. Compare amounts only for the same nutrient and unit; these are not dietary recommendations.</p>
+<section><h2>Nutrition summaries by food type</h2><p class="muted">Each row combines nutrient records from many foods of the same type, not one product. Average = total ÷ record count. Compare amounts only for the same nutrient and unit; these are not dietary recommendations.</p>
 <form method="get"><input type="hidden" name="run" value="{{selected}}"><label for="q">Filter type, nutrient ID or unit</label><input id="q" name="q" value="{{query}}" placeholder="e.g. 1003 or branded"><button>Filter</button><a href="?run={{selected|urlencode}}">Reset</a></form>
-<div class="scroll"><table><thead><tr><th>Food type</th><th>Nutrient ID</th><th>Unit</th><th>Observations</th><th>Mean amount</th><th>Total amount</th></tr></thead><tbody>{% for row in data.rows %}<tr><td>{{row.food_type}}</td><td>{{row.nutrient_id}}</td><td>{{row.unit}}</td><td>{{'{:,}'.format(row.records)}}</td><td>{{'%.4g'|format(row.mean)}}</td><td>{{'%.6g'|format(row.total)}}</td></tr>{% else %}<tr><td colspan="6">No matching observations.</td></tr>{% endfor %}</tbody></table></div></section>
-<section><h2>Run provenance</h2><p>Recorded at: {{data.recorded_at}}<br>Hive benchmark: {{'complete' if data.hive_complete else 'incomplete'}}</p><p>Source SHA-256<br><code>{{data.source_sha256}}</code></p>{% if data.subset_sha256 %}<p>Exported subset SHA-256<br><code>{{data.subset_sha256}}</code></p>{% endif %}<p><a href="{{url_for('api', run=selected)}}">View evidence as JSON</a></p></section>
-{% endif %}<footer>BCS714D · Track B practical extension · Viewing uses saved results; running jobs starts the required project services.</footer></main></body></html>
+<div class="scroll"><table><thead><tr><th>Food type</th><th>Nutrient ID</th><th>Unit</th><th>Observations</th><th title="Total divided by the number of observations">Average amount</th><th title="Sum across observations for this nutrient and food type">Total amount</th></tr></thead><tbody>{% for row in data.rows %}<tr><td>{{row.food_type}}</td><td>{{row.nutrient_id}}</td><td>{{row.unit}}</td><td>{{'{:,}'.format(row.records)}}</td><td>{{'%.4g'|format(row.mean)}}</td><td>{{'%.6g'|format(row.total)}}</td></tr>{% else %}<tr><td colspan="6">No matching observations.</td></tr>{% endfor %}</tbody></table></div></section>
+<section><h2>About this result</h2><p>Recorded scope: {{data.scope}}</p><p>Recorded at: {{data.recorded_at}}<br>Hive benchmark: {{'complete' if data.hive_complete else 'incomplete'}}</p><p>Source SHA-256<br><code>{{data.source_sha256}}</code></p>{% if data.subset_sha256 %}<p>Exported subset SHA-256<br><code>{{data.subset_sha256}}</code></p>{% endif %}<p><a href="{{url_for('api', run=selected)}}">View evidence as JSON</a></p></section>
+{% endif %}</div><footer>BCS714D · Track B practical extension · Viewing uses saved results; running jobs starts the required project services.</footer></main></body></html>

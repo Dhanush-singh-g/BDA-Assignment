@@ -110,3 +110,23 @@ fixture/container classifications and does not declare submission completion.
 The existing 50,000-food run was performed on the user's laptop using Terminal
 commands; the new controls still need that user's laptop check. No 100,000-food
 or full-data performance claim is made by these UI tests.
+
+## Simplified UI and existing-import full mode
+
+- The source database is fixed to `fdc_home202410`; attempts to supply another
+  database through the UI API are rejected.
+- Separate **View results** and **Run analysis** tabs, custom subsets (1–100,000
+  foods), and **Entire dataset** selection passed desktop/mobile Chromium checks.
+  Browser POSTs for the full/custom choices were intercepted to verify payloads
+  without launching the real release. No JavaScript errors or mobile overflow.
+- All 32 automated tests passed with MongoDB integration enabled, including ZIP
+  discovery, fixed-source enforcement, full-worker dispatch, input hash/count
+  mismatch rejection, and reading full-run stage/log/Hive progress.
+- The existing-import full Part 1 path completed on a **two-food synthetic ZIP**
+  in `results/reuse_ui_1792247705071815010/`. Raw import verification, preparation,
+  MongoDB analytics, HDFS/YARN, Pig, eight Hive executions (one measured run per
+  query/format for this test), reconciliation and report all passed. The report
+  records reuse of an existing import and retains synthetic/container scope.
+- UI full mode uses five measured runs per query/format (24 executions including
+  warmups), an original ZIP, the fixed full import and serialized service switching.
+  This implementation validation is not a successful full USDA/laptop run.

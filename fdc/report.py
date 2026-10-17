@@ -183,7 +183,8 @@ def generate(run_dir):
              f"Deployment classification: **{context['deployment_kind']}**.",
              "Computational reconciliation: **passed**. This does not establish compliance with the physical lab-system requirement.",
              "", "## Dataset and accounting", "", f"Source SHA-256: `{fingerprint}`.",
-             "All CSV tables were ingested; source row counts:", "", "| Table | Rows |", "| --- | ---: |"]
+             ("Existing full import was verified and reused; source row counts:" if context.get('mongo_input_mode') == 'verified-existing-import'
+              else "All CSV tables were ingested; source row counts:"), "", "| Table | Rows |", "| --- | ---: |"]
     lines += [f"| {name} | {count:,} |" for name, count in sorted(mongo["tables"].items())]
     lines += ["", f"Nutrient observations scanned: {counts['food_nutrient']:,}; prepared: {counts['written']:,}; rejected: {counts['rejected']:,}.",
               f"Negative observations excluded: {accounting['negative_filtered']:,}; clean observations: {accounting['clean_rows']:,}.",
