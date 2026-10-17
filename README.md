@@ -155,3 +155,5 @@ without the cluster services. Scope and incomplete status remain visible.
 - [Laptop demo](docs/LAPTOP-DEMO.md)
 - [Three-system setup and full run](docs/THREE-SYSTEM-RUN.md)
 - [Architecture and operation](docs/ARCHITECTURE.md)
+
+- [Presentation questions and answers](docs/PRESENTATION-QA.md)
