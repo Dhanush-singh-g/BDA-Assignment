@@ -100,7 +100,7 @@ def analyze(database, output, repeats=5):
     try:
         manifest = db.metadata.find_one({"_id": "import", "complete": True})
         if not manifest:
-            raise ValueError("A completed full import is required")
+            raise ValueError("A completed import is required")
         for table in ("food", "food_nutrient", "nutrient"):
             if table not in manifest["tables"]:
                 raise ValueError(f"Missing required table: {table}")
@@ -144,6 +144,8 @@ def analyze(database, output, repeats=5):
                 profiles.append({"iteration": iteration + 1, "mode": mode,
                                  "wall_seconds": time.perf_counter() - start, "explain": explain})
         record = {"release": RELEASE, "source_sha256": manifest["source_sha256"],
+                  "dataset_kind": manifest.get("dataset_kind", "full-import"),
+                  "selection": manifest.get("selection"),
                   "recorded_at": datetime.now(timezone.utc).isoformat(),
                   "mongodb_version": client.server_info()["version"], "tables": manifest["tables"],
                   "query": query, "profiles": profiles,
