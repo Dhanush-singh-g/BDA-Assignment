@@ -9,6 +9,28 @@ The physical-lab steps have not yet been tested on your college machines.
 Do not reinstall their OS. Windows/WSL on three machines needs extra networking
 work; the native Linux commands below are not a ready-made Windows setup.
 
+## First: where do I type things?
+
+1. Sit at the computer named in the step and log in to Ubuntu.
+2. Press **Ctrl+Alt+T** to open Terminal (or search for “Terminal” in Applications).
+3. Type/paste the commands inside a `bash` block into Terminal. Press **Enter**.
+   Run one command at a time and check for errors before the next one.
+4. Do **not** copy the Markdown backticks, the word `bash`, or a prompt such as
+   `hadoop@master:~$`. Those are not parts of the command.
+5. Blocks labelled `text` show example output or file contents. Do not run them
+   as commands. This guide explicitly says when to type text into nano instead.
+6. A line ending in `\` continues on the next line. Paste the complete command.
+   For a block containing `<<'PY'` or `<<'ENV'`, paste the **whole block**, including
+   its closing `PY` or `ENV`. The terminal waits until that closing line arrives.
+7. Wait for the prompt to return before continuing, except where a command is
+   deliberately left running (HiveServer2 or the dashboard).
+
+No project software is assumed installed: this guide installs the basic packages,
+Docker, Python dependencies, Java, Hadoop, Pig, Hive and MongoDB. It does require
+Ubuntu itself, a working internet connection and an administrator account.
+If you cannot log in or run `sudo`, the lab admin must provide access; you cannot
+create administrator privileges by inventing a password.
+
 ## 0. Before you start
 
 Bring the official October 2024 ZIP on a USB drive. You do not need to extract it
@@ -31,9 +53,25 @@ needed to install/download tools. Do not start all jobs on undersized machines.
 these commands into Windows PowerShell. `sudo` asks for the local admin password;
 do not share passwords or keys in chat.
 
+**About passwords:** your existing Ubuntu login/admin password is used for `sudo`.
+Later, `sudo adduser hadoop` will create a *new* project account and ask you to
+choose its password. These are different accounts. Password characters do not
+appear while typing—not even stars. Type the password and press Enter.
+
 ## 1. ALL THREE: find out what machines you have
 
-Open Terminal on each computer:
+On **each computer**, first use the existing administrator account to install
+basic commands, including the nano editor. This is before we try to edit files:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y nano iproute2 iputils-ping ca-certificates curl
+```
+
+If `sudo` says “not in the sudoers file”, stop and ask the lab admin to run the
+admin steps. If internet/package installation fails, fix it before proceeding.
+
+Now check the machine:
 
 ```bash
 cat /etc/os-release
@@ -45,18 +83,75 @@ df -h /
 Write down each machine's LAN IPv4 address, RAM and free disk. Ask the admin for
 stable/reserved LAN addresses so the IPs do not change during the experiment.
 
-Example only (replace with your own addresses everywhere):
+### What exactly do I write in `/etc/hosts`?
+
+Suppose the actual addresses you wrote down were:
+
+| Computer you selected | Its LAN IP | Name we want to use |
+| --- | --- | --- |
+| MASTER | `192.168.1.101` | `master` |
+| WORKER1 | `192.168.1.102` | `worker1` |
+| WORKER2 | `192.168.1.103` | `worker2` |
+
+**Those numbers are only an example.** If your master is `10.0.0.21`, write
+`10.0.0.21 master` instead. Use the LAN address from `hostname -I`, not `127.0.0.1`
+and not a Docker/VPN address. Ask the admin if several addresses are printed.
+
+On **ALL THREE computers**, run this in Terminal:
+
+```bash
+sudo nano /etc/hosts
+```
+
+Nano opens a text editor inside the terminal. You may initially see something
+like this (the existing computer name will differ):
 
 ```text
+127.0.0.1 localhost
+127.0.1.1 lab-pc-01
+
+::1 localhost ip6-localhost ip6-loopback
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+```
+
+Use the arrow keys to move to the bottom. Add the following **inside nano**, using
+your real addresses. Do not replace the whole file or delete its existing lines.
+With the example addresses, the finished file would look like:
+
+```text
+127.0.0.1 localhost
+127.0.1.1 lab-pc-01
+
+::1 localhost ip6-localhost ip6-loopback
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+
 192.168.1.101 master
 192.168.1.102 worker1
 192.168.1.103 worker2
 ```
 
-On **each computer**, open `sudo nano /etc/hosts` and add those three actual
-IP/name pairs. Remove conflicting old entries for those names. Save with
-Ctrl+O, Enter, Ctrl+X. We use these names to reach the machines; you do not need
-to rename their existing OS hostnames.
+The existing `lab-pc-01` line can be different on each machine. The **three added
+LAN lines must be identical on all three computers**. If any of the names
+`master`, `worker1` or `worker2` already appears on another line, ask the admin
+to resolve that conflict; it must not point to both localhost and a LAN address.
+
+Save and exit nano:
+
+1. Hold **Ctrl** and press **O** (the letter O) to save.
+2. At `File Name to Write: /etc/hosts`, press **Enter**.
+3. Press **Ctrl+X** to exit back to Terminal.
+
+Check the saved file and name resolution from Terminal:
+
+```bash
+cat /etc/hosts
+getent hosts master worker1 worker2
+```
+
+The names should resolve to the LAN IPs you entered. This file is a small address
+book: it lets Hadoop say `worker1` instead of spelling out its IP each time.
 
 From each computer, test:
 
@@ -77,10 +172,26 @@ Run as the existing administrator:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y openssh-server rsync git python3 python3-venv gnupg procps
+sudo apt-get install -y openssh-client openssh-server rsync git python3 python3-venv gnupg procps
 sudo systemctl enable --now ssh
+```
+
+Now create the new project account on each computer:
+
+```bash
 sudo adduser hadoop
 ```
+
+The command will ask for:
+
+- `New password:` → choose a password for this computer's `hadoop` account.
+- `Retype new password:` → enter it again (nothing appears while typing).
+- Full name/room/phone → press Enter to leave optional fields blank.
+- `Is the information correct? [Y/n]` → type `Y`, then Enter.
+
+Record which password belongs to which computer securely. The passwords may be
+different. You will use each computer's `hadoop` password for the initial SSH-key
+copy. Do not put passwords in commands, GitHub, this guide or chat.
 
 If `hadoop` already exists, use that account with the admin's help; do not recreate
 it. The home directory must be `/home/hadoop` on all three machines for the paths
@@ -92,7 +203,17 @@ Open a shell as that user on **each computer**:
 sudo -iu hadoop
 ```
 
-Keep using this user for the rest of the guide unless a step explicitly says admin.
+The prompt should now start with `hadoop@...`. Check:
+
+```bash
+whoami
+pwd
+```
+
+Expect `hadoop` and `/home/hadoop`. Keep using this account unless a step says
+**admin**. To return to the original admin shell, type `exit` once. Opening a new
+Terminal may use the original login account again; use `sudo -iu hadoop` when
+needed. The project user does not need sudo privileges.
 
 ## 3. MASTER: arrange passwordless SSH to all three machines
 
@@ -103,9 +224,16 @@ appropriate existing key instead of overwriting it. If there is no key:
 ssh-keygen -t ed25519
 ```
 
-Accept the default location. For this private teaching setup, an empty key
-passphrase allows Hadoop's startup scripts to run without prompts; protect the
-account and private key. Alternatively use a passphrase and an SSH agent.
+You will see three prompts:
+
+1. `Enter file in which to save the key ...` → press Enter for the default.
+2. `Enter passphrase ...` → for this approved private teaching setup, press Enter
+   for an empty key passphrase.
+3. `Enter same passphrase again` → press Enter again.
+
+If it asks to overwrite an existing key, answer **no** and ask the admin which
+key to reuse. A key passphrase is different from the `hadoop` login password.
+Protect the private key; a passphrase with an SSH agent is another option.
 
 On each computer, the admin can display its host fingerprint with:
 
@@ -124,7 +252,17 @@ ssh worker1 'whoami'
 ssh worker2 'whoami'
 ```
 
-All three should print `hadoop` without asking for the login password. Do not
+During each `ssh-copy-id` command:
+
+- The first connection may ask `Are you sure you want to continue connecting?`.
+  Compare the SHA256 host fingerprint with the one displayed on that target
+  computer. If it matches, type `yes`, then Enter.
+- At `hadoop@worker1's password:`, enter the `hadoop` password you created on
+  **WORKER1**. Use WORKER2's password for worker2, and MASTER's for master.
+- Expect a message saying a key was added. Future connections use that key.
+
+The final three `ssh ... 'whoami'` commands should each print `hadoop` without
+asking for the login password. Do not
 bypass host-key checks. Fix SSH before proceeding.
 
 ## 4. MASTER: download the code and verified tools
@@ -132,11 +270,55 @@ bypass host-key checks. Fix SSH before proceeding.
 Only master needs Docker for the local MongoDB service and exporting the pinned
 Java distribution. Workers run Hadoop directly on Linux, without Docker.
 
-Have the **admin on MASTER** install Docker Engine using its official Ubuntu
-instructions: https://docs.docker.com/engine/install/ubuntu/ . Install the Compose
-plugin too. To permit the project user's commands, the admin may add `hadoop` to
-the Docker group (this grants powerful access; use only on the approved lab host).
-Then fully log out/back in as `hadoop` so group membership takes effect.
+Switch to the **original admin account on MASTER** (`exit` once if you are
+inside the `sudo -iu hadoop` shell). Confirm you are back in that admin account
+using `whoami`. On a fresh Ubuntu 24.04 machine, install Docker as follows.
+If Docker is already installed, let the admin inspect it instead of replacing it.
+
+Run each command in MASTER's Terminal as the admin:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+```
+
+Now paste this **whole block**, including the final `EOF_DOCKER` line. It adds
+Docker's official Ubuntu 24.04 package repository:
+
+```bash
+sudo tee /etc/apt/sources.list.d/docker.sources > /dev/null <<'EOF_DOCKER'
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: noble
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF_DOCKER
+```
+
+Then install and start Docker:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl enable --now docker
+sudo usermod -aG docker hadoop
+```
+
+The Docker group gives powerful access, so get the lab admin's agreement first.
+Switch into a **fresh** project-user shell to load the new group membership:
+
+```bash
+sudo -iu hadoop
+id -nG
+```
+
+The groups should include `docker`. Do not use an old open `hadoop` shell for
+Docker commands. See Docker's official instructions if installation reports a
+conflict: https://docs.docker.com/engine/install/ubuntu/ . Do not blindly remove
+pre-existing packages or other students' containers.
 
 As `hadoop` on MASTER:
 
@@ -151,7 +333,10 @@ bash scripts/install.sh
 
 If already cloned, use `git pull --ff-only origin main` in that checkout instead.
 The installer downloads verified Hadoop 2.10.2, Pig 0.17.0, Hive 2.3.9 and Java 8,
-plus Python dependencies and images. Wait for `Dependencies prepared`. Stop on
+plus Python dependencies and images. Java, Hadoop, Pig, Hive and MongoDB do
+**not** need separate manual installations before this command. MongoDB is
+installed as a Docker image, not as an Ubuntu database package. Wait for
+`Dependencies prepared`. Stop on
 an error. This is an older teaching stack required for Pig/RCFile compatibility;
 keep it on the isolated lab network.
 
@@ -165,6 +350,10 @@ cp -a data/tools/java data/tools/hadoop data/tools/pig data/tools/hive ~/fdc-too
 ```
 
 ## 5. MASTER: create the physical-cluster configuration
+
+This is a Python script launched from Terminal. Paste the entire block through
+its final `PY` line into Terminal; do not open a Python console or nano for it.
+It fills in the Hadoop/Hive configuration files automatically.
 
 Run this block on MASTER, from the checkout. It changes only generated tool
 configuration under your home, not the source templates:
@@ -222,6 +411,10 @@ rsync -a ~/fdc-tools/java ~/fdc-tools/hadoop worker2:/home/hadoop/fdc-tools/
 
 ## 6. ALL THREE: set command paths and create storage folders
 
+Paste the whole block through `ENV`, then run the remaining lines. It writes
+settings into `.bashrc`, a file Ubuntu reads when opening your shell. You do not
+need to create `.bashrc` in advance; `>>` appends to it. Run this setup once.
+
 Run as `hadoop` on **each computer**, once:
 
 ```bash
@@ -239,6 +432,12 @@ source ~/.bashrc
 mkdir -p ~/hadoop-state/{name,data,tmp}
 java -version
 hadoop version
+```
+
+Also check the installed Python on both workers:
+
+```bash
+python3 --version
 ```
 
 Expect Java 8 and Hadoop 2.10.2 everywhere. Pig/Hive paths are used only on master;
@@ -327,6 +526,11 @@ MongoDB remains local to master; the workers do not need to connect to it.
 
 ## 10. MASTER: copy the ZIP and check it
 
+On MASTER, open the file manager using `nautilus /home/hadoop/BDA-Assignment`
+from the project user's terminal if available; otherwise use the logged-in desktop
+file manager with the admin's help. Desktop apps are optional, not assumed here.
+If a USB file is copied by the admin, give the project user read access to it.
+
 Copy the original ZIP from USB into `~/BDA-Assignment/data/raw/` using the file
 manager, or use your actual USB path with `cp`. Create the folder first:
 
@@ -394,6 +598,12 @@ After successful completion:
 cat results/college_full01/run.json
 cat results/college_full01/reconciliation.json
 less results/college_full01/PART1_REPORT.md
+```
+
+`less` opens the report in the terminal; press **Q** to leave it. Then start the
+dashboard with:
+
+```bash
 .venv/bin/python -m fdc.dashboard
 ```
 
