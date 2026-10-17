@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from pathlib import Path
 from flask import Flask, abort, jsonify, render_template, request
 from .hive_benchmark import read_result
+from .theme_evidence import details
 from .dashboard_jobs import JobManager, BusyError, exports, full_archive, SOURCE_DATABASE
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -65,6 +66,7 @@ def evidence(folder, root=ROOT):
         candidate = (root / success['mongo_results']).resolve()
         if candidate.is_relative_to(root.resolve()):
             mongo_folder = candidate
+    profile = {}
     profile_path = mongo_folder / 'profile.json'
     if profile_path.is_file():
         profile = read(profile_path)
@@ -74,11 +76,13 @@ def evidence(folder, root=ROOT):
                 if samples:
                     mongo_stats.append(dict(mode=mode, runs=len(samples),
                         milliseconds=statistics.median(r['explain']['executionStats']['executionTimeMillis'] for r in samples),
-                        documents=statistics.median(r['explain']['executionStats']['totalDocsExamined'] for r in samples)))
+                        documents=statistics.median(r['explain']['executionStats']['totalDocsExamined'] for r in samples),
+                        keys=statistics.median(r['explain']['executionStats']['totalKeysExamined'] for r in samples),
+                        returned=statistics.median(r['explain']['executionStats']['nReturned'] for r in samples)))
             food_path = mongo_folder / 'foods_by_type.jsonl'
             if food_path.exists():
                 food_types = [json.loads(line) for line in food_path.read_text().splitlines() if line.strip()]
-    return dict(food_count=manifest.get('counts', {}).get('food'), mongo_stats=mongo_stats, food_types=food_types, scope=scope, complete=completed, hive_complete=hive.get('complete', False),
+    return dict(requirements=details(folder, root, mongo_folder, profile, hive, source_hash), food_count=manifest.get('counts', {}).get('food'), mongo_stats=mongo_stats, food_types=food_types, scope=scope, complete=completed, hive_complete=hive.get('complete', False),
                 source_sha256=source_hash, subset_sha256=success.get('subset_sha256') if success else None,
                 counts=counts, tables=manifest.get('counts', {}), timings=timings,
                 storage=hive.get('storage', {}), rows=rows,
@@ -100,15 +104,17 @@ def run_label(folder):
         return 'Incomplete evidence · ' + folder.name[-10:]
 
 
-def create_app(root=ROOT):
+def create_app(root=ROOT, controls=True):
     app = Flask(__name__)
     root = Path(root).resolve()
-    manager = JobManager(root)
+    manager = JobManager(root) if controls else None
     app.config['CONTROL_TOKEN'] = secrets.token_urlsafe(32)
 
     @app.before_request
     def protect_local_controls():
         if request.path.startswith('/api/control'):
+            if not controls:
+                abort(403)
             if urlsplit('http://' + request.host).hostname not in {'localhost', '127.0.0.1', '::1'}:
                 abort(403)
             if request.method == 'POST':
@@ -163,7 +169,7 @@ def create_app(root=ROOT):
                             (r['food_type'] + ' ' + r['nutrient_id'] + ' ' + r['unit']).lower()]
         return render_template('dashboard.html', runs=runs, selected=selected,
                                data=data, error=error, query=query, control_token=app.config['CONTROL_TOKEN'],
-                               source_database=SOURCE_DATABASE, run_labels={key: run_label(folder) for key, folder in runs.items()})
+                               controls_enabled=controls, source_database=SOURCE_DATABASE, run_labels={key: run_label(folder) for key, folder in runs.items()})
 
     @app.get('/api/evidence')
     def api():
@@ -182,5 +188,6 @@ def create_app(root=ROOT):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=int, default=5000)
+    parser.add_argument('--view-only', action='store_true', help='Show recorded results without laptop controls (use on the college master)')
     args = parser.parse_args()
-    create_app().run(host='127.0.0.1', port=args.port, debug=False)
+    create_app(controls=not args.view_only).run(host='127.0.0.1', port=args.port, debug=False)

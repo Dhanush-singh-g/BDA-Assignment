@@ -185,3 +185,28 @@ and generates the full report. The driver records `mongo_input_mode` as
 measured repetitions plus warmups produce 24 Hive executions in this mode.
 Full-data progress is read from the driver's `run.json` and Hive progress files.
 The fixed database/ZIP must already exist; installation and import remain separate.
+
+## Assignment evidence and deployment modes
+
+New MongoDB analyses save `activity.json`, `input.json`, `pipelines.json` and
+index definitions in `profile.json`. Subset integration runs save their own
+`activity.json` and `programs.json` source snapshots. The full driver retains
+`run.json` stage history and snapshots its actual HDFS driver. Recorded activity
+includes failures; a failed check is not relabelled successful from old outputs.
+The dashboard shows live theme requirements and completed-run evidence. It labels
+current explanatory code separately when an older run has no archived snapshot.
+Input collection counts are recorded evidence, not live dashboard database queries.
+
+Theme 2 uses Python Streaming, so compiling a custom Java MapReduce class is not
+needed. Python prepares joined line-safe records before Pig runs its own cleaning
+on YARN. Text/RCFile comparisons include gzip on RCFile; percentage savings can
+be negative (shown as RCFile being larger). Logical bytes exclude replication;
+replicated bytes are shown separately. These measurements are not total operating
+system or HDFS metadata overhead.
+
+For the physical college setup run `fdc.part1 --cluster-mode client` as documented,
+then launch `python -m fdc.dashboard --view-only` using the project venv. That mode
+hides laptop controls, blocks the control API and does not initialize a job-manager
+directory. It reads the physical run's saved evidence. The UI changes do not alter
+hostnames, SSH, storage configuration or YARN scheduling. Normal dashboard mode
+continues to control the single-host Docker stack, not a native physical cluster.

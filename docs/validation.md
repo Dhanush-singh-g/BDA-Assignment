@@ -130,3 +130,32 @@ or full-data performance claim is made by these UI tests.
 - UI full mode uses five measured runs per query/format (24 executions including
   warmups), an original ZIP, the fixed full import and serialized service switching.
   This implementation validation is not a successful full USDA/laptop run.
+
+## Requirement-by-requirement theme reporting
+
+- All 40 tests passed with MongoDB integration enabled. New coverage checks
+  timeline failures, legacy/missing evidence, live theme state, source-import
+  snapshots, index/pipeline capture, native viewing-only mode and correct numeric
+  rendering of index keys.
+- The theme-aware detached UI job `655cfc79b3b04847a4b139f75b87a078` completed on a
+  **two-food synthetic fixture**. Evidence:
+  `data/realdev_1792250146887196533/`. Four prepared observations became three
+  nonnegative observations; MapReduce, Pig and all eight Hive executions passed
+  independent reconciliation. All six distributed activity stages were recorded.
+- Real MongoDB checks captured input/parent collection counts, index definitions,
+  exact aggregation pipelines, executionStats and four successful Theme 1 stages.
+  Parent-import metadata capture was additionally checked on the linked fixture.
+- Chromium checks verified all five operators, all five HDFS operation examples,
+  mapper/reducer/Pig/HQL evidence, three live theme cards, completed theme status,
+  actual recorded Hadoop version, desktop/mobile layout and no JavaScript errors.
+- `--view-only` retains theme/result viewing while hiding controls and returning
+  403 for control API requests. It does not initialize a job-manager directory.
+  The college guide now uses this mode; its physical cluster client commands
+  remain unchanged. Physical deployment still awaits the actual lab systems.
+
+Older runs remain readable. Missing source/index snapshots are labelled, not
+invented. Current explanatory code is distinguished from archived run code.
+Logical Text/RCFile size comparisons show either savings or additional space;
+RCFile is not automatically described as better. Native and container topology
+remain separately identified. This UI work does not complete final full-data or
+physical-cluster submission evidence.

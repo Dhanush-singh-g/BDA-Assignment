@@ -604,13 +604,22 @@ less results/college_full01/PART1_REPORT.md
 dashboard with:
 
 ```bash
-.venv/bin/python -m fdc.dashboard
+.venv/bin/python -m fdc.dashboard --view-only
 ```
 
 Look for `complete: true` in `run.json`, successful stages, and passing
 reconciliation. Open Flask's printed address in the **master's browser** and
 select `results/college_full01`. This shows the newly measured full-data results.
 A website opening alone does not prove the jobs passed.
+
+**Why `--view-only` here?** The website's “Run analysis” and service buttons are
+for the single-laptop Docker setup. This flag hides them and rejects job-control
+requests, so nobody accidentally starts container workers instead of the two
+physical workers. The college run is launched by the `fdc.part1 --cluster-mode
+client` command above. The dashboard reads its saved outputs, including all three
+themes' evidence; it does not need `fdc_home202410` or a separate browser database.
+Frontend changes do not change the lab's Hadoop/network configuration.
+
 
 ## 13. What should we save for the presentation?
 

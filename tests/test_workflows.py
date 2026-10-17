@@ -157,6 +157,15 @@ class MongoIntegrationTests(unittest.TestCase):
                 self.assertEqual(apple["total_amount"], 4.0)
                 self.assertNotIn(999999, [row["_id"]["nutrient_id"] for row in summary])
                 profile = json.loads((path / "results/profile.json").read_text())
+                self.assertEqual(profile['source_import']['tables'], manifest['tables'])
+                self.assertEqual(profile['source_import']['database'], database)
+                self.assertIn('idx_fdc_id', profile['indexes']['raw_food'])
+                activity = json.loads((path / 'results/activity.json').read_text())
+                self.assertEqual([r['status'] for r in activity['stages']], ['passed'] * 4)
+                definitions = (path / 'results/pipelines.json').read_text()
+                for operator in ('$match', '$group', '$project', '$unwind', '$facet'):
+                    self.assertIn(operator, definitions)
+                self.assertTrue((path / 'results/input.json').is_file())
                 for run in profile["profiles"]:
                     stats = run["explain"]["executionStats"]
                     self.assertEqual(stats["nReturned"], 1)

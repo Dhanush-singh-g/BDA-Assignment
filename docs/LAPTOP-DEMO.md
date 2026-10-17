@@ -88,3 +88,18 @@ docker compose -f infra/compose.yaml stop
 
 Keep the ZIP, development export and evidence folders. Three containers share
 one physical laptop; the required college deployment remains a separate step.
+
+## Show each assignment theme clearly
+
+In **View results**, use **Assignment coverage** to jump to Theme 1, 2 or 3.
+Expand the evidence sections for collection counts, aggregation operators,
+executionStats, HDFS commands, MapReduce source/job IDs, Pig counts/script,
+Hive table/query HQL and storage savings (or extra space used). New analyses
+also show live requirement checklists in **Run analysis**. Older results are
+supported; missing archived details are shown as missing, never invented.
+
+For a results-only demonstration with all execution buttons disabled:
+
+```bash
+.venv/bin/python -m fdc.dashboard --view-only
+```

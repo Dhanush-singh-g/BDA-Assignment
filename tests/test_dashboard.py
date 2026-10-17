@@ -66,3 +66,19 @@ class DashboardTests(unittest.TestCase):
         self.assertIn(b'Choose another size',html)
         self.assertNotIn(b'id="source-db"',html)
         self.assertIn(b'fdc_home202410',html)
+
+    def test_index_key_numbers_render_as_values_not_dict_methods(self):
+        run=self.seed()
+        benchmark=json.loads((run/'hive/benchmark.json').read_text())
+        benchmark['source_manifest']={'source_sha256':'a'*64}
+        (run/'hive/benchmark.json').write_text(json.dumps(benchmark))
+        (run/'mongo').mkdir()
+        profile={'source_sha256':'a'*64,'tables':{'food':2},'query':{'fdc_id':'10'},'profiles':[]}
+        for mode,docs,keys in [('collection_scan',2,0),('indexed',1,1)]:
+            profile['profiles'].append({'mode':mode,'iteration':1,'explain':{'executionStats':{'executionSuccess':True,'nReturned':1,'totalDocsExamined':docs,'totalKeysExamined':keys,'executionTimeMillis':0}}})
+        (run/'mongo/profile.json').write_text(json.dumps(profile))
+        page=self.client.get('/')
+        self.assertEqual(page.status_code,200)
+        self.assertIn(b'Index keys',page.data)
+        self.assertNotIn(b'built-in method',page.data)
+        self.assertEqual(self.client.get('/api/evidence?run=data/realdev_test').json['requirements']['explain'][1]['keys'],1)

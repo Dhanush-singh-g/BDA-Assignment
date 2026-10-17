@@ -172,6 +172,8 @@ class JobManager:
                         context = self.root / state['evidence'] / 'run.json'
                         if context.is_file():
                             state['analysis_stages'] = read(context).get('stages', [])
+                    from .theme_evidence import live_themes
+                    state['themes'] = live_themes(self.root, state)
                     states.append(state)
                 except (OSError, ValueError, KeyError):
                     continue

@@ -9,8 +9,10 @@ from pathlib import Path
 from zipfile import ZipFile
 
 from pymongo import ASCENDING, MongoClient
+from pymongo.errors import OperationFailure
 
 from .archive import RELEASE, checked_rows, members, rows, sha256
+from .progress import Timeline, save_json
 
 
 def connect(database):
@@ -96,16 +98,39 @@ def analyze(database, output, repeats=5):
         raise ValueError("repeats must be positive")
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
+    timeline = Timeline(output / "activity.json")
     client, db = connect(database)
     try:
-        manifest = db.metadata.find_one({"_id": "import", "complete": True})
-        if not manifest:
-            raise ValueError("A completed import is required")
-        for table in ("food", "food_nutrient", "nutrient"):
-            if table not in manifest["tables"]:
-                raise ValueError(f"Missing required table: {table}")
-        db.raw_food_nutrient.create_index([("fdc_id", ASCENDING)], name="idx_fdc_id")
-        db.raw_nutrient.create_index([("id", ASCENDING)], name="idx_nutrient_id")
+        with timeline.stage("mongo_input"):
+            manifest = db.metadata.find_one({"_id": "import", "complete": True})
+            if not manifest:
+                raise ValueError("A completed import is required")
+            for table in ("food", "food_nutrient", "nutrient"):
+                if table not in manifest["tables"]:
+                    raise ValueError(f"Missing required table: {table}")
+            origin = manifest
+            origin_database = database
+            candidate = manifest.get('source_database')
+            if isinstance(candidate, str) and re.fullmatch(r'fdc_[A-Za-z0-9_]+', candidate):
+                try:
+                    previous = client[candidate].metadata.find_one({'_id': 'import', 'complete': True})
+                except OperationFailure as error:
+                    if error.code != 13:
+                        raise
+                    previous = None  # Parent metadata is optional for a restricted analytics account.
+                if previous and previous.get('source_sha256') == manifest['source_sha256']:
+                    origin, origin_database = previous, candidate
+            source_import = {'database': origin_database, 'complete': origin.get('complete', False),
+                             'dataset_kind': origin.get('dataset_kind', 'full-import'),
+                             'tables': origin.get('tables', {}),
+                             'basis': 'Snapshot of completed-import metadata, not a live recount by the dashboard'}
+            input_record = {'database': database, 'source_sha256': manifest['source_sha256'],
+                            'tables': manifest['tables'], 'source_import': source_import}
+            save_json(output / 'input.json', input_record)
+        with timeline.stage("mongo_indexes"):
+            db.raw_food_nutrient.create_index([("fdc_id", ASCENDING)], name="idx_fdc_id")
+            db.raw_nutrient.create_index([("id", ASCENDING)], name="idx_nutrient_id")
+            save_json(output / 'indexes.json', {name: db[name].index_information() for name in ('raw_food_nutrient', 'raw_nutrient')})
         materialize = [
             {"$lookup": {"from": "raw_food_nutrient", "localField": "fdc_id", "foreignField": "fdc_id",
                          "pipeline": [
@@ -121,36 +146,45 @@ def analyze(database, output, repeats=5):
                          "as": "nutrients"}},
             {"$out": "foods"},
         ]
-        list(db.raw_food.aggregate(materialize, allowDiskUse=True))
-        if db.foods.count_documents({}) != manifest["tables"]["food"]:
-            raise RuntimeError("Derived food count does not match raw food count")
-        for name, pipeline in pipelines().items():
-            with (output / f"{name}.jsonl").open("w") as stream:
-                for document in db.foods.aggregate(pipeline, allowDiskUse=True):
-                    stream.write(json.dumps(document, allow_nan=False) + "\n")
-        sample = db.raw_food.find_one({}, {"fdc_id": 1})
-        if not sample:
-            raise ValueError("No food rows available to profile")
-        query = {"fdc_id": sample["fdc_id"]}
-        db.raw_food.create_index([("fdc_id", ASCENDING)], name="idx_fdc_id")
-        profiles = []
-        # Alternate order; both plans use the same query. $natural forces the no-index baseline.
-        for iteration in range(repeats):
-            modes = [("collection_scan", {"$natural": 1}), ("indexed", "idx_fdc_id")]
-            for mode, hint in modes[::1 if iteration % 2 == 0 else -1]:
-                start = time.perf_counter()
-                explain = db.command("explain", {"find": "raw_food", "filter": query, "hint": hint},
-                                     verbosity="executionStats")
-                profiles.append({"iteration": iteration + 1, "mode": mode,
-                                 "wall_seconds": time.perf_counter() - start, "explain": explain})
-        record = {"release": RELEASE, "source_sha256": manifest["source_sha256"],
-                  "dataset_kind": manifest.get("dataset_kind", "full-import"),
-                  "selection": manifest.get("selection"),
-                  "recorded_at": datetime.now(timezone.utc).isoformat(),
-                  "mongodb_version": client.server_info()["version"], "tables": manifest["tables"],
-                  "query": query, "profiles": profiles,
-                  "method": "Alternating forced collection scan and index scan; warm-cache development measurements, not cluster evidence"}
-        (output / "profile.json").write_text(json.dumps(record, indent=2, default=str) + "\n")
+        definitions = pipelines()
+        save_json(output / 'pipelines.json', definitions)
+        with timeline.stage("mongo_pipelines"):
+            list(db.raw_food.aggregate(materialize, allowDiskUse=True))
+            if db.foods.count_documents({}) != manifest["tables"]["food"]:
+                raise RuntimeError("Derived food count does not match raw food count")
+            for name, pipeline in definitions.items():
+                with (output / f"{name}.jsonl").open("w") as stream:
+                    for document in db.foods.aggregate(pipeline, allowDiskUse=True):
+                        stream.write(json.dumps(document, allow_nan=False) + "\n")
+        with timeline.stage("mongo_profile"):
+            sample = db.raw_food.find_one({}, {"fdc_id": 1})
+            if not sample:
+                raise ValueError("No food rows available to profile")
+            query = {"fdc_id": sample["fdc_id"]}
+            db.raw_food.create_index([("fdc_id", ASCENDING)], name="idx_fdc_id")
+            profiles = []
+            # Alternate order; both plans use the same query. $natural forces the no-index baseline.
+            for iteration in range(repeats):
+                modes = [("collection_scan", {"$natural": 1}), ("indexed", "idx_fdc_id")]
+                for mode, hint in modes[::1 if iteration % 2 == 0 else -1]:
+                    start = time.perf_counter()
+                    explain = db.command("explain", {"find": "raw_food", "filter": query, "hint": hint},
+                                         verbosity="executionStats")
+                    profiles.append({"iteration": iteration + 1, "mode": mode,
+                                     "wall_seconds": time.perf_counter() - start, "explain": explain})
+            record = {"release": RELEASE, "source_sha256": manifest["source_sha256"],
+                      "dataset_kind": manifest.get("dataset_kind", "full-import"),
+                      "selection": manifest.get("selection"),
+                      "recorded_at": datetime.now(timezone.utc).isoformat(),
+                      "mongodb_version": client.server_info()["version"], "tables": manifest["tables"],
+                      "query": query, "profiles": profiles,
+                      "method": "Alternating forced collection scan and index scan; warm-cache development measurements, not cluster evidence"}
+            record['database'] = database
+            record['source_import'] = source_import
+            record['indexes'] = {name: db[name].index_information() for name in
+                                 ('raw_food', 'raw_food_nutrient', 'raw_nutrient')}
+            record['derived_food_count'] = manifest['tables']['food']
+            save_json(output / "profile.json", record)
         return {"output": str(output), "profile_runs": len(profiles), "food_count": manifest["tables"]["food"]}
     finally:
         client.close()

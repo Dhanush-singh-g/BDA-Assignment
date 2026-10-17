@@ -16,6 +16,7 @@ from zipfile import ZipFile
 
 from .archive import members, sha256
 from .report import generate
+from .progress import snapshot
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -55,6 +56,7 @@ def run_part1(archive, run_id, dataset_kind, mode="docker", repeats=5,
     if prepared.exists():
         raise FileExistsError("Prepared destination already exists; use a new run ID")
     run_dir.mkdir(parents=True, exist_ok=False)
+    snapshot(run_dir, ROOT, full=True)
     prefix = ["docker", "compose", "-f", str(ROOT / "infra/compose.yaml"), "exec", "-T"] if mode == "docker" else []
     if mode == "docker":
         for name in ("HIVE_JDBC_URL", "HIVE_USER"):

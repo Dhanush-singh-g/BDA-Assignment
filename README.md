@@ -36,7 +36,9 @@ Dataset: [entire October 31, 2024 CSV package](https://fdc.nal.usda.gov/fdc-data
 
 The dashboard separates **View results** from **Run analysis**. Choose a subset,
 a custom size, or the entire dataset using the fixed source database. Optional
-controls reuse exports and switch services; progress/errors update automatically. See the
+controls reuse exports and switch services; progress/errors update automatically.
+Each theme has a requirement checklist with code and measured evidence. On the
+college master use `--view-only` so laptop Docker controls are disabled. See the
 [laptop guide](docs/LAPTOP-DEMO.md).
 
 The production workflow has no sampling limit. Development-subset commands are

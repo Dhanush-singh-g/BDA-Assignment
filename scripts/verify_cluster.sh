@@ -2,6 +2,9 @@
 set -euo pipefail
 : "${HADOOP_HOME:?Set HADOOP_HOME}"
 [[ $(hdfs getconf -confKey fs.defaultFS) == hdfs://* ]] || { echo 'HDFS is required' >&2; exit 1; }
+java -version
+hadoop version
+printf 'Shared filesystem: %s\n' "$(hdfs getconf -confKey fs.defaultFS)"
 report=$(hdfs dfsadmin -report)
 printf '%s\n' "$report"
 live=$(sed -nE 's/^Live datanodes \(([0-9]+)\):.*/\1/p' <<< "$report")
