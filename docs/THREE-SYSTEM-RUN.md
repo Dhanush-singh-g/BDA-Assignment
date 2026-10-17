@@ -5,6 +5,27 @@ same college network, and permission from the lab administrator. It is a fresh
 installation guide, not instructions for changing an existing Hadoop cluster.
 The physical-lab steps have not yet been tested on your college machines.
 
+### Do the latest website changes affect this setup?
+
+**No.** Keep the same master, two workers, network settings and installed tools.
+The website's new Ready/history display and live process panel belong to laptop
+jobs started using its buttons. In this lab guide, you start the physical-cluster
+run from MASTER's Terminal and use the website to view its saved results.
+
+If you already followed this guide, update the code **on MASTER only**, as the
+`hadoop` user, before starting your next run:
+
+```bash
+cd ~/BDA-Assignment
+git pull --ff-only origin main
+```
+
+Then continue with your existing setup; do not repeat installation, NameNode
+formatting or metastore initialization just for a website update. Restart an
+open dashboard after pulling, using the command in step 12. This guide does not
+clone the project on the workers: they receive Java/Hadoop from MASTER and the
+processing files through Hadoop. No worker update is needed for this UI fix.
+
 **If the computers run Windows, stop here and ask the lab admin about Linux.**
 Do not reinstall their OS. Windows/WSL on three machines needs extra networking
 work; the native Linux commands below are not a ready-made Windows setup.
@@ -581,6 +602,22 @@ cd ~/BDA-Assignment
 tail -f results/college_full01/cluster.log
 ```
 
+This follows new log output as it arrives. **Ctrl+C in this second terminal stops
+watching the log; it does not stop the analysis in the first terminal.** Some
+operations are quiet while working. To check the latest saved stage and command,
+open another MASTER terminal and run:
+
+```bash
+cd ~/BDA-Assignment
+cat results/college_full01/run.json
+cat results/college_full01/operation.json
+```
+
+Repeat these `cat` commands when you want an updated snapshot. `run.json` lists
+the stages; `operation.json` records the current/latest command, its process ID
+and status. The operation file appears after the first command starts. A single
+command passing does not mean the whole run is complete: check step 12.
+
 This run makes a **fresh full MongoDB import**, prepares files, uploads them to
 HDFS, runs MapReduce/Pig/Hive, compares answers and writes a report. It does not
 reuse the laptop's database. `--cluster-mode client` uses the physical Hadoop
@@ -618,6 +655,8 @@ requests, so nobody accidentally starts container workers instead of the two
 physical workers. The college run is launched by the `fdc.part1 --cluster-mode
 client` command above. The dashboard reads its saved outputs, including all three
 themes' evidence; it does not need `fdc_home202410` or a separate browser database.
+The laptop's live job panel is hidden in this mode. Follow step 11's terminal
+logs for the physical-cluster run, then open its completed results here.
 Frontend changes do not change the lab's Hadoop/network configuration.
 
 

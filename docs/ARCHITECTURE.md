@@ -68,6 +68,8 @@ The entire ZIP was prepared and imported into MongoDB: 2,063,876 foods and
 26,848,323 nutrient observations. All three themes passed on the linked
 **10,000-food development subset**, and the dashboard works. That subset contains
 mostly branded foods, so it does not represent every food type equally.
+Your laptop also passed the linked **50,000-food subset**, containing 1,126,928
+nutrient observations. Both are development checks rather than full-data runs.
 
 The final full-data analysis, measurements on three college machines, and report/
 demo evidence are still pending. A successful small run does not prove that a
@@ -80,3 +82,8 @@ the full workflow; `fdc/report.py` checks results; `fdc/dashboard.py` shows them
 The UI runner (`fdc/dashboard_jobs.py`) starts one background worker per job.
 It uses a process lock to prevent simultaneous UI jobs, saves progress in
 `data/ui_jobs/`, and invokes fixed command lists rather than arbitrary shell text.
+The laptop's Run analysis tab starts at Ready and follows active UI jobs every
+two seconds; previous runs must be selected explicitly. In the three-PC setup,
+the master launches `fdc.part1 --cluster-mode client` from Terminal and serves the
+dashboard with `--view-only`. That mode shows saved results; terminal logs provide
+progress while the native cluster run executes.
