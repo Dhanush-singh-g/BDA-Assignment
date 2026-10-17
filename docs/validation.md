@@ -159,3 +159,28 @@ Logical Text/RCFile size comparisons show either savings or additional space;
 RCFile is not automatically described as better. Native and container topology
 remain separately identified. This UI work does not complete final full-data or
 physical-cluster submission evidence.
+
+## Current-run status and live operations
+
+- All **46 Python tests passed**, including MongoDB integration. New checks use
+  an actual child process to verify its PID is recorded before completion,
+  failures/timeouts retain failure status, captured errors keep diagnostics,
+  full runs expose inner MongoDB operations, and active Hive log tails are read.
+- Chromium regression checks cover fresh Ready state with saved successes,
+  explicit history, clearing old logs, starting a new run, live query/output,
+  reconnecting to an active job, returning to Ready after a completed-page reload,
+  and mobile layout. Run `node tests/dashboard_progress_browser.cjs` from the
+  repository with Node, Playwright and Chromium available (override the browser
+  path with `CHROMIUM_PATH`). This launches an isolated Flask fixture and mocks
+  job requests; it never starts a dataset workflow.
+- Live updates poll every two seconds. Stage/operation times, actual child PIDs,
+  query names and output timestamps describe recorded activity. No completion
+  percentage or remaining-time estimate is invented. Existing history is kept;
+  completed history never receives a live-process payload.
+- Detached distributed job `92e396cd515042d3a658d2ea57642746` passed on the
+  existing **two-food synthetic fixture** in
+  `data/realdev_1792251524919313490/`: HDFS/YARN verification, file round trip,
+  MapReduce, Pig and all eight Hive executions reconciled. Live MapReduce/Pig
+  output, active Hive query/log files, and dashboard restart/reconnection were
+  checked during execution. The completed job exposes no live process. This
+  checks the progress implementation, not full USDA performance or lab topology.

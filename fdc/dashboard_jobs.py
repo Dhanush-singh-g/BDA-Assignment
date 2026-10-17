@@ -12,6 +12,8 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .progress import tracked_run
+
 SOURCE_DATABASE = 'fdc_home202410'
 ARCHIVE_NAME = 'FoodData_Central_csv_2024-10-31.zip'
 ACTIONS = {'full_workflow', 'workflow', 'existing', 'start_mongo', 'start_cluster', 'stop_services'}
@@ -167,19 +169,85 @@ class JobManager:
                             if progress.is_file():
                                 recorded = read(progress)
                                 state['hive_progress'] = {'completed': len(recorded.get('runs', [])),
-                                                          'expected': 24 if state['spec']['action'] == 'full_workflow' else 8, 'complete': recorded.get('complete', False)}
+                                                          'expected': 24 if state['spec']['action'] == 'full_workflow' else 8, 'complete': recorded.get('complete', False),
+                                                          'current': recorded.get('current_query')}
                     if state.get('evidence', '').startswith('results/'):
                         context = self.root / state['evidence'] / 'run.json'
                         if context.is_file():
                             state['analysis_stages'] = read(context).get('stages', [])
                     from .theme_evidence import live_themes
                     state['themes'] = live_themes(self.root, state)
+                    state['live'] = self.live(state)
                     states.append(state)
                 except (OSError, ValueError, KeyError):
                     continue
         finally:
             lock.close()
         return states
+
+    def query_log(self, state):
+        evidence = state.get('evidence')
+        if not run_path(evidence):
+            return None
+        progress = self.root / evidence / 'hive/progress.json'
+        if progress.is_file():
+            current = read(progress).get('current_query') or {}
+            name = current.get('log')
+            if isinstance(name, str) and re.fullmatch(r'[0-9]+-[a-z_]+-nutrients_(?:text|rcfile)\.log', name):
+                return progress.parent / name
+        return None
+
+    def live(self, state):
+        """Use only this active job's files; completed history has no live process."""
+        if state.get('status') not in {'queued', 'running'}:
+            return None
+        folder = self.path(state['id'])
+        directories = [folder]
+        stages = list(state.get('stages', []))
+        mongo = state.get('mongo_results')
+        if isinstance(mongo, str) and re.fullmatch(r'results/mongo/[A-Za-z0-9_]+', mongo):
+            directories.append(self.root / mongo)
+        evidence = state.get('evidence')
+        if run_path(evidence):
+            result = self.root / evidence
+            directories.extend([result / 'mongo', result])
+            stages += state.get('analysis_stages', [])
+        # More detailed, running timeline stages override the outer workflow stage.
+        for directory in directories[1:]:
+            path = directory / 'activity.json'
+            if path.is_file():
+                stages += read(path).get('stages', [])
+        stage = next((s for s in reversed(stages) if s.get('status') == 'running'), {})
+        operations = []
+        for directory in directories:
+            path = directory / 'operation.json'
+            if path.is_file():
+                item = read(path)
+                # Ignore an operation from a previous, already completed stage.
+                if item.get('status') == 'running' and item.get('started_at', '') >= stage.get('started_at', ''):
+                    operations.append(item)
+        current = max(operations, key=lambda item: item.get('started_at', ''), default={})
+        output = []
+        paths = [folder / 'worker.log']
+        if run_path(evidence):
+            paths.append(self.root / evidence / 'cluster.log')
+        query_log = self.query_log(state)
+        if query_log:
+            paths.append(query_log)
+        for path in paths:
+            if path.is_file() and path.stat().st_size:
+                with path.open('rb') as stream:
+                    stream.seek(max(0, path.stat().st_size - 4096))
+                    lines = stream.read().decode('utf-8', errors='replace').splitlines()
+                if lines:
+                    output.append((path.stat().st_mtime, path.name, lines[-1][-1200:]))
+        latest = max(output, default=None)
+        return {'stage': stage.get('name', 'Waiting for worker'),
+                'started_at': stage.get('started_at', state.get('started_at', state.get('created_at'))),
+                'operation': current or None,
+                'last_output': {'at': datetime.fromtimestamp(latest[0], timezone.utc).isoformat(),
+                                'file': latest[1], 'text': latest[2]} if latest else None,
+                'checked_at': now()}
 
     def log(self, job_id):
         folder = self.path(job_id)
@@ -191,6 +259,9 @@ class JobManager:
             name = read(marker).get('run_directory', '')
             if run_path(name):
                 paths.append(self.root / name / 'cluster.log')
+                query_log = self.query_log({'evidence': name})
+                if query_log:
+                    paths.append(query_log)
         chunks = []
         for path in paths:
             if path.exists():
@@ -213,13 +284,17 @@ class Worker:
     def command(self, args, timeout=None, capture=False):
         # All arguments originate in fixed workflows; no shell or user command text.
         print('Running:', ' '.join(map(str, args)), flush=True)
-        result = subprocess.run(list(map(str, args)), cwd=self.root, stdin=subprocess.DEVNULL,
-                                stdout=subprocess.PIPE if capture else None,
-                                stderr=subprocess.STDOUT if capture else None,
-                                text=True, timeout=timeout, check=False)
+        try:
+            result = tracked_run(self.folder / 'operation.json', list(map(str, args)), cwd=self.root,
+                                 stdin=subprocess.DEVNULL, stdout=subprocess.PIPE if capture else None,
+                                 stderr=subprocess.STDOUT if capture else None,
+                                 text=True, timeout=timeout, check=True)
+        except subprocess.CalledProcessError as error:
+            if capture and error.stdout:
+                print(error.stdout, flush=True)
+            raise
         if capture and result.stdout:
             print(result.stdout, flush=True)
-        result.check_returncode()
         return result.stdout if capture else None
 
     def stage(self, label, action):

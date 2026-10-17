@@ -24,9 +24,12 @@
 <p><small>Starting MongoDB stops Hadoop; starting Hadoop stops MongoDB. These controls manage this laptop's Docker services. Use the lab guide for three physical machines.</small></p>
 </details>
 <div class="progress-box"><h2>Analysis progress</h2><p id="control-message" role="status" aria-live="polite">Checking job history…</p>
-<label for="job-choice">Recent activity</label> <select id="job-choice" aria-label="Job history"></select>
+<label for="job-choice">Previous runs (optional)</label> <select id="job-choice" aria-label="Job history"><option value="">Current analysis / Ready</option></select>
+<button type="button" id="current-job" class="secondary" hidden>Back to current analysis</button>
+<p id="history-note" class="notice" hidden></p>
+<div id="current-process" class="source-note" hidden><strong id="process-stage"></strong><p id="process-operation"></p><small id="process-time"></small><pre id="process-output" class="code-block"></pre></div>
 <div id="live-themes" class="theme-grid live-themes" aria-live="polite"></div><div id="job-summary"></div><ol id="job-stages"></ol><a id="open-job-result" class="result-link" hidden>View completed results →</a>
-<details><summary>Show technical logs</summary><pre id="job-log">Select an analysis to see its logs.</pre></details></div>
+<details><summary>Show technical logs</summary><pre id="job-log">No current analysis. Start a run, or choose a previous run to read its saved logs.</pre></details></div>
 <p><small>Only one UI job runs at a time. Closing the browser does not cancel it. There is no force-cancel button.</small></p>
 </section>
 <script>
@@ -35,9 +38,33 @@
   const message = document.getElementById('control-message');
   const choice = document.getElementById('job-choice');
   const size = document.getElementById('size');
-  let states = [], chosen = '', polling = false, starting = false, archiveAvailable = null;
+  let states = [], chosen = '', history = false, polling = false, starting = false, archiveAvailable = null, requestError = '';
+  let displayed = '';
+  const idleLog = 'No current analysis. Start a run, or choose a previous run to read its saved logs.';
+  function clearProgress() {
+    document.getElementById('job-log').textContent=idleLog;
+    document.getElementById('job-summary').textContent='Ready. No current analysis.';
+    ['live-themes','job-stages'].forEach(id=>document.getElementById(id).replaceChildren());
+    ['open-job-result','current-process','history-note'].forEach(id=>document.getElementById(id).hidden=true);
+  }
+  function age(value) {
+    const seconds=Math.max(0,Math.floor((Date.now()-Date.parse(value))/1000));
+    return Number.isFinite(seconds) ? (seconds<60?seconds+'s':Math.floor(seconds/60)+'m '+seconds%60+'s') : 'unknown';
+  }
   const names={workflow:'Subset analysis',full_workflow:'Entire dataset',existing:'Distributed checks',start_mongo:'Start MongoDB',start_cluster:'Start Hadoop',stop_services:'Stop services'};
   const stageNames={cluster_startup:'Start Hadoop and wait for services',prepare_all_records:'Prepare every source record',mongo_full_import:'Verify the existing full MongoDB import',mongo_analytics_and_profile:'MongoDB summaries and index comparison',cluster_verification:'Verify both Hadoop workers',hdfs_file_operations:'HDFS upload and file checks',yarn_streaming:'MapReduce analysis',pig_cleaning:'Pig cleaning',hive_tables:'Build Hive Text and RCFile tables',hive_benchmark:'Compare Hive queries',cross_system_reconciliation_and_report:'Verify answers and generate report'};
+  const processHelp={
+    'HDFS / YARN readiness':'Checking the workers and running a sample distributed job.',
+    'HDFS file operations':'Uploading files and checking HDFS create, read, download and delete operations.',
+    'Python Streaming on YARN':'Workers are calculating nutrient counts, totals and means with MapReduce.',
+    'Pig transformation':'Pig is cleaning nutrient records and removing invalid or negative amounts.',
+    'Hive Text + RCFile':'Loading the same cleaned records into Hive Text and RCFile tables.',
+    'Identical queries / performance':'Preparing storage measurements and comparing the same queries across both formats.',
+    'Copy linked food subset':'Copying the selected foods and all their linked nutrient observations.',
+    'Export the same subset for Hadoop':'Writing the selected records into files for Hadoop.',
+    'Start Hadoop and wait for workers / Hive':'Starting services and waiting for both workers and Hive to respond.',
+    'Stop Hadoop and start MongoDB':'Stopping Hadoop to free memory, then starting MongoDB.'
+  };
   function showPanel(which) {
     document.getElementById('controls').hidden=which!=='analysis';
     document.getElementById('results-view').hidden=which!=='results';
@@ -57,22 +84,23 @@
   size.addEventListener('change',sizeHelp);sizeHelp();
   async function start(payload) {
     if(starting) return;
-    starting=true;
+    starting=true;requestError='';
     document.querySelectorAll('.job-button').forEach(b=>b.disabled=true);
     message.textContent='Starting analysis…';
     try {
       const response=await fetch('/api/control/jobs',{method:'POST',headers:{'Content-Type':'application/json','X-Control-Token':token},body:JSON.stringify(payload)});
       const data=await response.json();
       if(!response.ok)throw new Error(data.error||'Could not start. Reload this page and try again.');
-      chosen=data.id;message.textContent='Started. You can follow each stage below.';
-    } catch(error) {message.textContent=error.message;}
+      chosen=data.id;history=false;clearProgress();message.textContent='Started. You can follow each stage below.';
+    } catch(error) {requestError=error.message;message.textContent=requestError;}
     finally {starting=false;}
     await refresh();
   }
   document.getElementById('new-job').addEventListener('submit',e=>{e.preventDefault();start(size.value==='full' ? {action:'full_workflow'} : {action:'workflow',foods:Number(size.value==='custom'?document.getElementById('custom-size').value:size.value)});});
   document.getElementById('existing-job').addEventListener('submit',e=>{e.preventDefault();start({action:'existing',export:document.getElementById('export-choice').value});});
   document.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>start({action:b.dataset.action})));
-  choice.addEventListener('change',()=>{chosen=choice.value;refresh();});
+  choice.addEventListener('change',()=>{chosen=choice.value;history=!!chosen;displayed='';clearProgress();refresh();});
+  document.getElementById('current-job').addEventListener('click',()=>{chosen='';history=false;displayed='';clearProgress();refresh();});
   async function refresh() {
     if(polling)return;
     polling=true;
@@ -87,10 +115,13 @@
       Object.entries(data.exports).forEach(([key,item])=>exp.add(new Option(item.foods.toLocaleString()+' foods · '+key.split('/').pop(),key)));
       if(!exp.options.length)exp.add(new Option('No prepared subset available',''));
       if([...exp.options].some(o=>o.value===old))exp.value=old;
-      choice.replaceChildren();
+      choice.replaceChildren(new Option('Current analysis / Ready',''));
       states.forEach(j=>choice.add(new Option((names[j.spec.action]||'Analysis')+(j.spec.foods?' · '+j.spec.foods.toLocaleString()+' foods':'')+' · '+j.status+' · '+new Date(j.created_at).toLocaleString(),j.id)));
-      if(!chosen||!states.some(j=>j.id===chosen))chosen=active?.id||states.find(j=>j.result)?.id||states[0]?.id||'';
-      choice.value=chosen;
+      if(!history && active)chosen=active.id;
+      if(chosen&&!states.some(j=>j.id===chosen)){chosen='';history=false;}
+      choice.value=history?chosen:'';
+      document.getElementById('current-job').hidden=!history;
+      if(displayed!==chosen){clearProgress();displayed=chosen;}
       const job=states.find(j=>j.id===chosen),summary=document.getElementById('job-summary'),stages=document.getElementById('job-stages'),link=document.getElementById('open-job-result');
       stages.replaceChildren();link.hidden=true;
       const themes=document.getElementById('live-themes');themes.replaceChildren();
@@ -102,19 +133,39 @@
         });card.appendChild(list);themes.appendChild(card);
       });
       if(job) {
-        summary.textContent='Status: '+job.status+(job.error?' · '+job.error:'')+(job.hive_progress?' · Hive queries: '+job.hive_progress.completed+'/'+job.hive_progress.expected:'');
+        const historyNote=document.getElementById('history-note');historyNote.hidden=!history;
+        historyNote.textContent='Saved activity from '+new Date(job.created_at).toLocaleString()+'. This does not start a new analysis.';
+        summary.textContent=(history?'Saved status: ':'Current run: ')+job.status+(job.error?' · '+job.error:'')+(job.hive_progress?' · Hive queries: '+job.hive_progress.completed+'/'+job.hive_progress.expected:'');
         const items=job.analysis_stages?.length?job.analysis_stages:job.stages;
         items.forEach(s=>{const li=document.createElement('li');li.textContent=(stageNames[s.name]||s.name)+' — '+s.status;stages.appendChild(li);});
         if(job.status==='succeeded'&&job.result){link.href='/?run='+encodeURIComponent(job.result);link.hidden=false;}
+        const live=document.getElementById('current-process');live.hidden=!job.live;
+        if(job.live) {
+          const current=job.live, op=current.operation, query=job.hive_progress?.current;
+          document.getElementById('process-stage').textContent='Now: '+(stageNames[current.stage]||current.stage);
+          document.getElementById('process-operation').textContent=query ? 'Hive query '+query.number+'/'+query.total+': '+query.query+' on '+query.table+' ('+(query.warmup?'warmup':'measured')+')' : (op?.command ? processHelp[current.stage] || 'Executing this stage. Expand technical logs to see its current command.' : op?.label) || 'Working on this stage. Waiting for the next operation update…';
+          document.getElementById('process-time').textContent=(query?.started_at?'Query elapsed: '+age(query.started_at)+' · ':'')+'Stage elapsed: '+age(current.started_at)+(op?.pid?' · Process ID: '+op.pid:'')+' · Checked '+new Date(current.checked_at).toLocaleTimeString();
+          document.getElementById('process-output').textContent=current.last_output ? 'Latest output ('+current.last_output.file+', '+age(current.last_output.at)+' ago):\n'+current.last_output.text : 'Waiting for output. Quiet operations may take time; elapsed time is not a percentage.';
+        }
         const logs=await fetch('/api/control/jobs/'+encodeURIComponent(job.id)+'/log');
-        if(logs.ok)document.getElementById('job-log').textContent=(await logs.json()).log||'Waiting for output…';
-      } else summary.textContent='No analysis started from the UI yet.';
-      if(active)message.textContent='Analysis is running. Stages and logs update automatically.';
-      else if(message.textContent==='Checking job history…'||message.textContent.startsWith('Analysis is running.'))message.textContent='Ready. Choose a dataset size above, or view your saved results.';
+        if(logs.ok) {
+          const text=(await logs.json()).log;
+          if(chosen===job.id) {
+            const box=document.getElementById('job-log'),atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<40;
+            box.textContent=text||(history?'No saved output.':'Waiting for output…');
+            if(atBottom)box.scrollTop=box.scrollHeight;
+          }
+        } else if(chosen===job.id)document.getElementById('job-log').textContent='Could not load logs; retrying on the next update.';
+      } else {clearProgress();}
+      if(requestError)message.textContent=requestError;
+      else if(active)message.textContent=history?'A current job is running. You are viewing saved activity; use Back to current analysis to follow it.':'Analysis is running. Current process and logs refresh every two seconds.';
+      else if(history)message.textContent='Viewing previous activity. Choose a size and Start analysis for a new run.';
+      else if(job)message.textContent=job.status==='succeeded'?'This run finished. Open its results below, or start another analysis.':'This run stopped. Check its status and logs below.';
+      else message.textContent='Ready. Choose a dataset size and click Start analysis. Previous runs are available separately.';
     } catch(error) {message.textContent=error.message;}
     finally {polling=false;}
   }
-  refresh();setInterval(refresh,4000);
+  refresh();setInterval(refresh,2000);
 })();
 </script>
 {% endif %}

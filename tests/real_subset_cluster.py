@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from fdc.prepare import prepare
 from fdc.report import reference_groups, check_groups
 from fdc.hive_benchmark import read_result
-from fdc.progress import Timeline, snapshot
+from fdc.progress import Timeline, snapshot, tracked_run
 from test_workflows import fixture
 
 
@@ -57,7 +57,7 @@ def main():
         with log_path.open("a") as log:
             log.write("COMMAND " + repr(command) + "\n")
             log.flush()
-            subprocess.run(compose + command, check=True, stdout=log, stderr=subprocess.STDOUT)
+            tracked_run(local / 'operation.json', compose + command, check=True, stdout=log, stderr=subprocess.STDOUT)
 
     if args.result_file:
         Path(args.result_file).write_text(json.dumps({'run_directory': local.as_posix()}) + '\n')

@@ -97,16 +97,24 @@ def main():
     random.Random(714).shuffle(measured)
     schedule += [(False, table, q) for table, q in measured]
     for index, (warmup, table, query) in enumerate(schedule):
-        start = time.perf_counter()
-        run = subprocess.run(["beeline", "-u", url, "-n", user, "--silent=true", "--showHeader=false",
-                              "--outputformat=tsv2", "--hivevar", f"TABLE={table}",
-                              "--hivevar", f"DATABASE={args.database}", "-f", str(query)],
-                             text=True, capture_output=True)
-        elapsed = time.perf_counter() - start
-        (output / f"{index:02d}-{query.stem}-{table}.tsv").write_text(run.stdout)
-        (output / f"{index:02d}-{query.stem}-{table}.log").write_text(run.stderr)
+        evidence['current_query'] = {'number': index + 1, 'total': len(schedule),
+                                     'query': query.stem, 'table': table, 'warmup': warmup,
+                                     'started_at': datetime.now(timezone.utc).isoformat(),
+                                     'log': f'{index:02d}-{query.stem}-{table}.log'}
+        checkpoint()
+        print(f"Hive query {index + 1}/{len(schedule)}: {query.stem} on {table} ({'warmup' if warmup else 'measured'})", flush=True)
+        result_path = output / f"{index:02d}-{query.stem}-{table}.tsv"
+        # Direct file output lets the dashboard tail Beeline/YARN diagnostics
+        # while a query runs, including long intervals before its answer arrives.
+        with result_path.open('w') as stdout, (output / evidence['current_query']['log']).open('w') as stderr:
+            start = time.perf_counter()
+            run = subprocess.run(["beeline", "-u", url, "-n", user, "--silent=true", "--showHeader=false",
+                                  "--outputformat=tsv2", "--hivevar", f"TABLE={table}",
+                                  "--hivevar", f"DATABASE={args.database}", "-f", str(query)],
+                                 stdout=stdout, stderr=stderr)
+            elapsed = time.perf_counter() - start
         run.check_returncode()
-        result = read_result(run.stdout)
+        result = read_result(result_path.read_text())
         reference = references.get(query.stem)
         if reference is not None and not equivalent(reference, result):
             raise ValueError("Text/RCFile results differ; performance comparison is invalid")
@@ -114,6 +122,7 @@ def main():
         evidence["runs"].append({"table": table, "query": query.stem, "warmup": warmup, "seconds": elapsed,
                                  "groups": len(result), "records": sum(row[0] for row in result.values())})
         checkpoint()
+    evidence["current_query"] = None
     evidence["complete"] = True
     checkpoint()
     (output / "benchmark.json").write_text(json.dumps(evidence, indent=2) + "\n")

@@ -1,5 +1,6 @@
 """Small atomic execution timeline shared by analytics and distributed jobs."""
 import json
+import subprocess
 import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -26,6 +27,46 @@ def save_json(path, value):
     temporary.replace(path)
 
 
+@contextmanager
+def operation(path, label, command=None):
+    """Record actual work, including quiet commands, without estimating progress."""
+    record = {'label': label, 'status': 'running',
+              'started_at': datetime.now(timezone.utc).isoformat()}
+    if command is not None:
+        record['command'] = list(map(str, command))
+    save_json(path, record)
+    try:
+        yield record
+    except BaseException as error:
+        record.update(status='failed', error_type=type(error).__name__)
+        raise
+    else:
+        record['status'] = 'passed'
+    finally:
+        record['finished_at'] = datetime.now(timezone.utc).isoformat()
+        save_json(path, record)
+
+
+def tracked_run(path, args, *, display=None, timeout=None, check=False, **kwargs):
+    """subprocess.run with a persisted current command and its real child PID."""
+    shown = list(map(str, display if display is not None else args))
+    with operation(path, ' '.join(shown), shown) as record:
+        with subprocess.Popen(args, **kwargs) as process:
+            record['pid'] = process.pid
+            save_json(path, record)
+            try:
+                stdout, stderr = process.communicate(timeout=timeout)
+            except BaseException:
+                process.kill()
+                process.communicate()
+                raise
+            result = subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
+            record['returncode'] = result.returncode
+            if check:
+                result.check_returncode()
+            return result
+
+
 class Timeline:
     def __init__(self, path):
         self.path = Path(path)
@@ -33,6 +74,9 @@ class Timeline:
 
     def save(self):
         save_json(self.path, self.data)
+
+    def operation(self, label):
+        return operation(self.path.with_name('operation.json'), label)
 
     @contextmanager
     def stage(self, key):

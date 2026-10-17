@@ -16,7 +16,7 @@ from zipfile import ZipFile
 
 from .archive import members, sha256
 from .report import generate
-from .progress import snapshot
+from .progress import snapshot, tracked_run
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -102,11 +102,11 @@ def run_part1(archive, run_id, dataset_kind, mode="docker", repeats=5,
             log.flush()
             target = stack.enter_context(Path(output).open("wb")) if output else log
             source = stack.enter_context(Path(input_path).open("rb")) if input_path else subprocess.DEVNULL
-            return subprocess.run(argv, cwd=ROOT, stdin=source, stdout=target, stderr=log, check=True)
+            return tracked_run(run_dir / 'operation.json', argv, display=display, cwd=ROOT, stdin=source, stdout=target, stderr=log, check=True)
 
     def stage(name, action):
         print(f"{name}: starting", flush=True)
-        item = {"name": name, "status": "running"}
+        item = {"name": name, "status": "running", "started_at": datetime.now(timezone.utc).isoformat()}
         state["stages"].append(item)
         save()
         started = time.perf_counter()

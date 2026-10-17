@@ -128,8 +128,10 @@ def analyze(database, output, repeats=5):
                             'tables': manifest['tables'], 'source_import': source_import}
             save_json(output / 'input.json', input_record)
         with timeline.stage("mongo_indexes"):
-            db.raw_food_nutrient.create_index([("fdc_id", ASCENDING)], name="idx_fdc_id")
-            db.raw_nutrient.create_index([("id", ASCENDING)], name="idx_nutrient_id")
+            with timeline.operation("Build the food-nutrient lookup index"):
+                db.raw_food_nutrient.create_index([("fdc_id", ASCENDING)], name="idx_fdc_id")
+            with timeline.operation("Build the nutrient-definition index"):
+                db.raw_nutrient.create_index([("id", ASCENDING)], name="idx_nutrient_id")
             save_json(output / 'indexes.json', {name: db[name].index_information() for name in ('raw_food_nutrient', 'raw_nutrient')})
         materialize = [
             {"$lookup": {"from": "raw_food_nutrient", "localField": "fdc_id", "foreignField": "fdc_id",
@@ -149,11 +151,12 @@ def analyze(database, output, repeats=5):
         definitions = pipelines()
         save_json(output / 'pipelines.json', definitions)
         with timeline.stage("mongo_pipelines"):
-            list(db.raw_food.aggregate(materialize, allowDiskUse=True))
+            with timeline.operation("Join foods with their nutrient observations and save derived food documents"):
+                list(db.raw_food.aggregate(materialize, allowDiskUse=True))
             if db.foods.count_documents({}) != manifest["tables"]["food"]:
                 raise RuntimeError("Derived food count does not match raw food count")
             for name, pipeline in definitions.items():
-                with (output / f"{name}.jsonl").open("w") as stream:
+                with timeline.operation("Calculate " + name.replace("_", " ")), (output / f"{name}.jsonl").open("w") as stream:
                     for document in db.foods.aggregate(pipeline, allowDiskUse=True):
                         stream.write(json.dumps(document, allow_nan=False) + "\n")
         with timeline.stage("mongo_profile"):
@@ -167,11 +170,13 @@ def analyze(database, output, repeats=5):
             for iteration in range(repeats):
                 modes = [("collection_scan", {"$natural": 1}), ("indexed", "idx_fdc_id")]
                 for mode, hint in modes[::1 if iteration % 2 == 0 else -1]:
-                    start = time.perf_counter()
-                    explain = db.command("explain", {"find": "raw_food", "filter": query, "hint": hint},
-                                         verbosity="executionStats")
+                    with timeline.operation(f"Index comparison {iteration + 1}/{repeats}: {mode}"):
+                        start = time.perf_counter()
+                        explain = db.command("explain", {"find": "raw_food", "filter": query, "hint": hint},
+                                             verbosity="executionStats")
+                        elapsed = time.perf_counter() - start
                     profiles.append({"iteration": iteration + 1, "mode": mode,
-                                     "wall_seconds": time.perf_counter() - start, "explain": explain})
+                                     "wall_seconds": elapsed, "explain": explain})
             record = {"release": RELEASE, "source_sha256": manifest["source_sha256"],
                       "dataset_kind": manifest.get("dataset_kind", "full-import"),
                       "selection": manifest.get("selection"),

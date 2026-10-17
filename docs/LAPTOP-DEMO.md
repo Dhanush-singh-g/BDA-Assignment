@@ -45,7 +45,18 @@ To repeat your 50,000-food distributed check without MongoDB reprocessing, expan
 **Reuse prepared data or manage services**, select `data/dev50k_export_01`, and
 click **Run distributed checks**. Service buttons are in that optional section.
 
-**Analysis progress** shows stages/logs and links to completed results. The app
+**Analysis progress** starts at **Ready**. It never automatically treats an old
+success as a new run. To inspect old stages/logs, choose **Previous runs**;
+**Back to current analysis** returns to live progress (or Ready).
+
+While running, **Now** shows the current stage/operation, elapsed time, process
+ID when available, latest output and its age. It refreshes every two seconds.
+Hive shows the current query, format and warmup/measured status. Expand
+**Show technical logs** for live command/Beeline output. Quiet operations can
+take time; the page does not invent completion percentages. Reloading reconnects
+to an active job; completed runs remain available in history and View results.
+
+The app
 switches services to save RAM and runs one UI job at a time. Keep Ubuntu running
 and the laptop awake; closing a tab does not cancel the job. Do not start Terminal
 jobs at the same time. There is no force-cancel button. Inspect failures before
