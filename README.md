@@ -13,6 +13,7 @@ Dataset: [entire October 31, 2024 CSV package](https://fdc.nal.usda.gov/fdc-data
 
 | Document | When you need it |
 | --- | --- |
+| [50,000-food laptop run](run%2050%2C000.md) | Commands, explanations and the saved 50,000-food dashboard run. |
 | [Laptop demo](docs/LAPTOP-DEMO.md) | Start the dashboard or repeat your small laptop test. |
 | [Three-system walkthrough](docs/THREE-SYSTEM-RUN.md) | Set up and run the full dataset on three college computers, step by step. |
 | [Architecture explained](docs/ARCHITECTURE.md) | Understand what the program and each tool do. |
@@ -27,6 +28,8 @@ Dataset: [entire October 31, 2024 CSV package](https://fdc.nal.usda.gov/fdc-data
   MongoDB. Full-data MongoDB analytics was interrupted, not completed.
 - **10,000-food linked subset:** MongoDB profiling and cross-system
   MapReduce/Pig/Hive checks passed on the user's laptop.
+- **50,000-food linked subset:** MongoDB analytics and cross-system checks passed
+  on the laptop, covering 1,126,928 linked nutrient records.
 - **Part 2:** Flask dashboard implemented and opened successfully on the laptop.
 - **Still pending:** full-data analytics/benchmarks, three physical college
   systems, final report and presentation evidence.
