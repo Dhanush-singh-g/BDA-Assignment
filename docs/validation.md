@@ -1,10 +1,11 @@
 # Validation record
 
-## Verified in this cloud instance
+## Earlier cloud fixture validation
 
 - Python 3.12.14; pinned PyMongo 4.10.1 and dnspython 2.7.0 installed in `.venv`.
 - MongoDB 7.0.16 runs in Docker and responds to an actual database ping.
-- Thirteen automated tests passed with MongoDB integration enabled; no tests skipped.
+- At that stage, 13 automated tests passed with MongoDB integration enabled;
+  no tests skipped. Later dashboard implementation validation reached 18 tests.
 - Tests verify complete fixture ingestion, preservation of an additional CSV,
   long/multiline text, refusal to overwrite an existing database, all analytical
   pipelines and executionStats index/collection-scan behavior.
@@ -35,19 +36,35 @@
   `task-placement.json`, and `hive_verified/benchmark.json` under that directory.
   These are retained local outputs, excluded from Git.
 
-## Pending
+## Current status: user laptop and dashboard
 
-- Complete USDA release download: cloud proxy rejects the official host with
-  HTTP 403 despite the hostname being present in saved environment configuration.
-  No source records from the actual dataset have been processed yet.
-- Full-dataset reconciliation, scale/resource checks and performance measurements.
-- Physical college-cluster deployment, node inventory, task placement and final
-  distributed evidence.
-- Track B dashboard extension and final report/presentation.
+The following laptop outcomes were reported through terminal output in this chat;
+they are separate from cloud fixture validation:
 
-Synthetic fixtures are correctness tests, not dataset samples or submission
-benchmarks. This file records capabilities, not a claim that the project or
-assignment is complete.
+- Full ZIP CRC verified; SHA-256
+  `85b6268117a8f6b8032d67a06ccd51ed1287a53ebaaeb0b3e262165e2820cb9f`.
+- Full preparation: 2,063,876 foods, 477 nutrient definitions and 26,848,323
+  nutrient records, with zero preparation rejects.
+- Full MongoDB ingestion: all 34 CSVs completed. Full-data analytical
+  materialization was interrupted; it is not a completed benchmark.
+- Linked 10,000-food subset analytics passed: 9,994 branded and 6 experimental
+  foods; both profile plans returned the same row. Collection scans examined
+  10,000 documents, indexed scans one document/one key.
+- Real-subset cluster integration passed in
+  `data/realdev_1792236286088591242/`: HDFS/YARN, MapReduce, Pig and Hive outputs
+  checked against independent totals and matching saved MongoDB summaries.
+- Dashboard opened on the laptop. Its implementation passed 18 automated tests
+  in the cloud (including MongoDB integration), actual saved-evidence rendering
+  and HTML/JSON requests to a running local HTTP server.
+
+## Still pending
+
+- Full-data analytics/reconciliation and repeated final performance measurements.
+- Three physical college systems, inventory and task placement on both workers.
+- Final Part 1/Part 2 report, screenshots and presentation evidence.
+
+Synthetic fixtures and linked subsets are development evidence, not full-release
+submission benchmarks. Generated logs/results are excluded from Git; back them up.
 
 ## Integrated Part 1 driver and report
 

@@ -23,7 +23,7 @@
 
 ## Part 2 — practical extension (10 marks)
 
-Implemented: [Flask dashboard](dashboard.md) showing dataset coverage, nutrient summaries and measured
+Implemented: [Flask dashboard](TECHNICAL-REFERENCE.md) showing dataset coverage, nutrient summaries and measured
 query/storage benchmarks. Validate the local browser demo against the saved development evidence. It should read saved
 results or controlled APIs, show data/run provenance, and never display fixture
 measurements as full-dataset results. Include architecture, implementation,

@@ -33,7 +33,7 @@ expected counts, totals and averages. It can take several minutes.
 
 Stop the dashboard if memory is tight; keep MongoDB stopped. Dependencies are
 already installed on your laptop. For a fresh installation, first follow
-[Windows setup](windows-home.md).
+[fresh laptop setup](TECHNICAL-REFERENCE.md).
 
 ```bash
 docker stop fdc-mongo-dev
