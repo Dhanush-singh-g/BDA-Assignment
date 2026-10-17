@@ -141,3 +141,33 @@ Dashboard-only tests need no database:
 Back up generated evidence separately; it is ignored by Git. SHA-256 identifies
 the local artifact, not a publisher signature. Keep subset/full-run labels and
 capture actual worker task placement for the final physical deployment.
+
+## Local job controls
+
+The dashboard's optional controls execute fixed laptop workflows; the saved
+results view remains usable without services. `Run all three themes` creates a
+new linked subset from an existing full MongoDB import, runs profiles, exports,
+switches to Hadoop and reconciles MapReduce/Pig/Hive. `Reuse an existing subset`
+requires matching saved MongoDB scope, selection and table counts. Actions also
+start MongoDB (stop Hadoop), start Hadoop (stop MongoDB), or stop project services.
+
+The existing install must include `data/tools/READY.json`, `.venv`, Docker
+permissions and the full source database. Installation and full ZIP ingestion
+are not automated by these buttons. Processes use the dashboard's Ubuntu account;
+no sudo password is requested by the UI. Docker-group access is powerful, so the
+server stays loopback-only, debug off, with same-origin request-token checks for
+mutations. Do not expose the dashboard to a LAN or public internet.
+
+A detached worker holds a filesystem lock across dashboard reloads. Job metadata
+and logs persist under `data/ui_jobs/<id>/`. The API under `/api/control/jobs`
+returns recent job states; a second action returns 409 while the lock is held.
+No arbitrary command or deletion endpoint exists. Readiness waits up to five
+minutes. Failed stages preserve logs/partial outputs and stop subsequent stages.
+Worker interruption is shown separately from success. After an interrupted
+worker, inspect logs and use **Stop project services** to clear the recovery
+block before launching another job. Closing the dashboard does
+not cancel a job; keep WSL and the laptop awake. There is no force-cancel button.
+Do not launch manual jobs at the same time or retry an interrupted job without
+checking for still-running database/YARN work. Disk checks see the Linux virtual
+filesystem; also check actual Windows drive free space. No free-space check can
+guarantee a larger run will fit.

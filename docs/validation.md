@@ -86,3 +86,27 @@ The new tests reject mismatched source fingerprints, missing groups, incorrect
 counts, invalid timings and unsafe run IDs. The archive inspection utility was
 tested with a real ZIP and full CRC verification. The final report keeps all
 fixture/container classifications and does not declare submission completion.
+
+## Dashboard job controls (cloud implementation validation)
+
+- Added fixed background laptop workflows for new linked subsets, existing-export
+  distributed checks, and project service switching/stopping.
+- A real dashboard job POST launched a detached worker on a **two-food synthetic
+  fixture** (10,000 was a selection ceiling, not a 10,000-row benchmark). It passed
+  MongoDB creation/profiling/export, automatic service switching/readiness, HDFS,
+  YARN, MapReduce, Pig, all eight Hive executions and result reconciliation.
+  Evidence: `data/realdev_1792246691225772507/`; job metadata/logs live under
+  `data/ui_jobs/8271b7f4da284381ab965cbb07d1c50a/` and are excluded from Git.
+- Chromium checks verified desktop/mobile controls, stage/log polling, no
+  JavaScript errors, no mobile horizontal overflow, and disabled concurrent-job
+  buttons. A Flask restart retained the worker and its process lock.
+- All 26 automated tests passed with MongoDB integration enabled.
+- Browser controls opened the completed evidence and successfully stopped the
+  project services using a real button-triggered background action.
+- Local request-token/origin checks, fixed-action input validation, failure state
+  preservation, interrupted-worker recovery blocking, bounded logs and export
+  provenance matching have automated coverage.
+
+The existing 50,000-food run was performed on the user's laptop using Terminal
+commands; the new controls still need that user's laptop check. No 100,000-food
+or full-data performance claim is made by these UI tests.

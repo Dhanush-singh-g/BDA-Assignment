@@ -1,10 +1,13 @@
-"""Local, read-only dashboard for recorded Track B evidence."""
+"""Local evidence dashboard with fixed background laptop workflows."""
 import argparse
 import json
 import statistics
+import secrets
+from urllib.parse import urlsplit
 from pathlib import Path
 from flask import Flask, abort, jsonify, render_template, request
 from .hive_benchmark import read_result
+from .dashboard_jobs import JobManager, BusyError, exports
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -86,7 +89,47 @@ def evidence(folder, root=ROOT):
 
 def create_app(root=ROOT):
     app = Flask(__name__)
-    root = Path(root)
+    root = Path(root).resolve()
+    manager = JobManager(root)
+    app.config['CONTROL_TOKEN'] = secrets.token_urlsafe(32)
+
+    @app.before_request
+    def protect_local_controls():
+        if request.path.startswith('/api/control'):
+            if urlsplit('http://' + request.host).hostname not in {'localhost', '127.0.0.1', '::1'}:
+                abort(403)
+            if request.method == 'POST':
+                origin = request.headers.get('Origin')
+                if origin and origin.rstrip('/') != request.host_url.rstrip('/'):
+                    abort(403)
+                token = request.headers.get('X-Control-Token', '')
+                if not secrets.compare_digest(token, app.config['CONTROL_TOKEN']):
+                    abort(403)
+                if not request.is_json:
+                    abort(415)
+
+    @app.get('/api/control/jobs')
+    def control_jobs():
+        return jsonify(jobs=manager.jobs(), exports=exports(root))
+
+    @app.post('/api/control/jobs')
+    def control_start():
+        try:
+            state = manager.submit(request.get_json())
+            return jsonify(state), 202
+        except BusyError as error:
+            return jsonify(error=str(error)), 409
+        except (ValueError, TypeError) as error:
+            return jsonify(error=str(error)), 400
+        except OSError:
+            return jsonify(error='Unable to launch job; check Docker, permissions and local disk'), 500
+
+    @app.get('/api/control/jobs/<job_id>/log')
+    def control_log(job_id):
+        try:
+            return jsonify(log=manager.log(job_id))
+        except (ValueError, FileNotFoundError):
+            abort(404)
 
     @app.get('/')
     def home():
@@ -106,7 +149,7 @@ def create_app(root=ROOT):
             data['rows'] = [r for r in data['rows'] if query.lower() in
                             (r['food_type'] + ' ' + r['nutrient_id'] + ' ' + r['unit']).lower()]
         return render_template('dashboard.html', runs=runs, selected=selected,
-                               data=data, error=error, query=query)
+                               data=data, error=error, query=query, control_token=app.config['CONTROL_TOKEN'])
 
     @app.get('/api/evidence')
     def api():

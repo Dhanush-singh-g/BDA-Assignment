@@ -134,8 +134,10 @@ YARN schedules tasks within the connected cluster.
 ## 23. What does Flask do?
 
 It displays recorded nutrient summaries, MongoDB index comparisons, Hive timings,
-storage and source fingerprints. It does not launch jobs or query MongoDB live.
-The database and cluster can be stopped while showing the dashboard.
+storage and source fingerprints. Viewing results does not query MongoDB live. The database and cluster can be
+stopped while viewing. Optional laptop controls launch fixed workflows in the
+background, switch services, and show stage/log progress; they allow one UI job
+at a time.
 
 ## 24. What is SHA-256 used for?
 

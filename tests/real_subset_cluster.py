@@ -26,6 +26,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--subset', required=True)
     parser.add_argument('--mongo-results', required=True)
+    parser.add_argument('--result-file', help='Write the generated evidence directory for the dashboard worker')
     args = parser.parse_args()
     source = Path(args.subset)
     metadata = json.loads((source / 'subset.json').read_text())
@@ -55,6 +56,8 @@ def main():
             log.flush()
             subprocess.run(compose + command, check=True, stdout=log, stderr=subprocess.STDOUT)
 
+    if args.result_file:
+        Path(args.result_file).write_text(json.dumps({'run_directory': local.as_posix()}) + '\n')
     print(f"Real-data subset development evidence: {local}", flush=True)
     run(["bash", "scripts/verify_cluster.sh"])
     run(["bash", "scripts/hdfs_demo.sh", str(local / "development.zip"), str(local / "prepared"), hdfs])

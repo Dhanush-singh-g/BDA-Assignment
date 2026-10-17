@@ -25,7 +25,30 @@ Open the address printed by Flask in your Windows browser. Select
 - Point out the development-subset label and source fingerprint.
 Stop the dashboard with **Ctrl+C**. No data is deleted.
 
-## 2. Want to show the jobs actually running?
+## 2. Run jobs using the website buttons
+
+The dashboard now has **Run on this laptop** controls:
+
+- To reuse your successful 50,000-food data, select `data/dev50k_export_01` under
+  **Reuse an existing subset**, then click **Run Hadoop / Pig / Hive only**.
+- To create a fresh run, leave the source as `fdc_home202410`, choose 10,000,
+  50,000 or 100,000 foods, and click **Run all three themes**. This creates a new
+  subset database, profiles MongoDB, exports data, then checks the other systems.
+- Service buttons switch between MongoDB/Hadoop or stop this project's services.
+
+The website switches services to save RAM. It runs one job at a time and shows
+stage status, recent logs, errors and an **Open completed results** link. Your
+old results stay intact. No full ZIP download/import is started by these controls.
+Keep Ubuntu running and the laptop awake. Closing a browser tab does not cancel
+the job; reopen the dashboard to see its history. Do not run Terminal jobs at the
+same time. For physical college machines, use the lab guide instead.
+
+A new workflow creates extra data each time. Reuse your existing export when you
+only need to repeat the distributed check. 100,000 foods remains a larger scale
+test, not a guaranteed fit. There is no force-cancel button; investigate failed/
+interrupted runs before starting another. No datasets are automatically deleted.
+
+## 3. Prefer Terminal commands?
 
 This starts the master and two worker containers, checks they can communicate,
 then reruns the same small real-data test. Each tool's answer must match the
@@ -53,7 +76,7 @@ Show the two live DataNodes, two RUNNING YARN workers, successful job and final
 contains `SUCCESS.json`, `cluster.log`, MapReduce output and Hive evidence.
 Each invocation creates a new run; do not repeat unnecessarily.
 
-## 3. Done showing it?
+## 4. Done showing it?
 
 ```bash
 docker compose -f infra/compose.yaml stop

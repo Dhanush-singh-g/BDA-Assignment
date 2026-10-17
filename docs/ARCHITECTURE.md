@@ -28,7 +28,7 @@ are not dietary advice or necessarily averages per 100 g.
 | MapReduce | Workers process portions of the input; reducers combine observations into counts, totals and averages. |
 | Pig | Clean the prepared records, including filtering negative nutrient amounts from the analysis. |
 | Hive | Run SQL-style questions on the cleaned data. Compare normal Text storage with compressed RCFile storage. |
-| Flask | Show the saved results in a browser without keeping all those services running. |
+| Flask | Show saved results and optionally launch fixed laptop workflows with progress/logs. Viewing alone needs no services. |
 
 ## How are the machines connected?
 
@@ -76,3 +76,7 @@ larger run will fit in memory or finish without issues.
 Key files: `fdc/prepare.py` prepares data; `fdc/mongo.py` handles MongoDB;
 `mapreduce/`, `pig/` and `hive/` contain the processing jobs; `fdc/part1.py` runs
 the full workflow; `fdc/report.py` checks results; `fdc/dashboard.py` shows them.
+
+The UI runner (`fdc/dashboard_jobs.py`) starts one background worker per job.
+It uses a process lock to prevent simultaneous UI jobs, saves progress in
+`data/ui_jobs/`, and invokes fixed command lists rather than arbitrary shell text.

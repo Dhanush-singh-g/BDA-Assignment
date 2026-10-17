@@ -34,6 +34,10 @@ Dataset: [entire October 31, 2024 CSV package](https://fdc.nal.usda.gov/fdc-data
 - **Still pending:** full-data analytics/benchmarks, three physical college
   systems, final report and presentation evidence.
 
+The dashboard also offers laptop job controls: run a new subset workflow, reuse
+an existing export, switch services, and monitor progress/errors. See the
+[laptop guide](docs/LAPTOP-DEMO.md).
+
 The production workflow has no sampling limit. Development-subset commands are
 explicitly separate and labelled. Three laptop containers do not satisfy the
 three-physical-system requirement.
