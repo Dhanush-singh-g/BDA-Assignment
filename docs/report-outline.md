@@ -3,8 +3,10 @@
 Formatted report: [editable Word](../reports/VTU_BDA_Track_B_Report.docx) ·
 [PDF](../reports/VTU_BDA_Track_B_Report.pdf). It follows the supplied Cloud Report's
 course-report layout with JSSATE/team/guide details, A4 pages, bold 14-point
-headings, 12-point text and justified paragraphs. It records completed development
-results and identifies pending full-data/physical-cluster measurements and screenshots.
+headings, 12-point text and justified paragraphs. It covers the architecture,
+both Track B parts, diagrams and recorded development results, and ends with
+Conclusion and References. Deployment instructions and submission checklists
+remain in the separate project guides rather than in the formal report.
 
 ## Part 1 — three core themes (15 marks)
 
