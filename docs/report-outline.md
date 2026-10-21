@@ -1,5 +1,11 @@
 # Track B report and demo evidence
 
+Formatted report: [editable Word](../reports/VTU_BDA_Track_B_Report.docx) ·
+[PDF](../reports/VTU_BDA_Track_B_Report.pdf). It follows the supplied Cloud Report's
+course-report layout with JSSATE/team/guide details, A4 pages, bold 14-point
+headings, 12-point text and justified paragraphs. It records completed development
+results and identifies pending full-data/physical-cluster measurements and screenshots.
+
 ## Part 1 — three core themes (15 marks)
 
 1. Dataset provenance: official release URL/date, local SHA-256, archive inventory,

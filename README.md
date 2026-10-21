@@ -19,6 +19,7 @@ Dataset: [entire October 31, 2024 CSV package](https://fdc.nal.usda.gov/fdc-data
 | [Architecture explained](docs/ARCHITECTURE.md) | Understand what the program and each tool do. |
 | [Presentation Q&A](docs/PRESENTATION-QA.md) | Prepare answers for your presentation/viva. |
 | [Report checklist](docs/report-outline.md) | Assemble the Part 1 and Part 2 submission evidence. |
+| VTU-style report: [Word](reports/VTU_BDA_Track_B_Report.docx) · [PDF](reports/VTU_BDA_Track_B_Report.pdf) | Formatted Track B report with team details, architecture, implementation and recorded development results. |
 | [Validation record](docs/validation.md) | See what actually passed and what is still pending. |
 | [Technical reference](docs/TECHNICAL-REFERENCE.md) | Optional: fresh setup, subset export, troubleshooting and output-file details. |
 
@@ -32,7 +33,8 @@ Dataset: [entire October 31, 2024 CSV package](https://fdc.nal.usda.gov/fdc-data
   on the laptop, covering 1,126,928 linked nutrient records.
 - **Part 2:** Flask dashboard implemented and opened successfully on the laptop.
 - **Still pending:** full-data analytics/benchmarks, three physical college
-  systems, final report and presentation evidence.
+  systems, final measurements/screenshots and presentation evidence. The formatted
+  report draft is included above; its pending experiments are explicitly labelled.
 
 The dashboard separates **View results** from **Run analysis**. Choose a subset,
 a custom size, or the entire dataset using the fixed source database. Optional
