@@ -170,3 +170,68 @@ class ControlTests(unittest.TestCase):
         self.assertEqual(state['hive_progress']['completed'],1)
         self.assertEqual(state['analysis_stages'][0]['name'],'hive_benchmark')
         self.assertIn('Saved full-run diagnostics',self.manager.log('e'*32))
+
+    def test_recovery_includes_interruption_older_than_recent_history(self):
+        import os
+        stale_id='f'*32
+        folder=self.manager.path(stale_id);folder.mkdir()
+        write(folder/'state.json',dict(id=stale_id,status='interrupted',spec={'action':'workflow'},stages=[]))
+        os.utime(folder/'state.json',(1,1))
+        for number in range(21):
+            job_id=f'{number:032x}'
+            recent=self.manager.path(job_id);recent.mkdir()
+            write(recent/'state.json',dict(id=job_id,status='succeeded',spec={'action':'stop_services'},stages=[]))
+        response=self.client.get('/api/control/jobs')
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(len(response.json['jobs']),20)
+        self.assertNotIn(stale_id,[j['id'] for j in response.json['jobs']])
+        self.assertTrue(response.json['recovery']['required'])
+        self.assertEqual(response.json['recovery']['jobs'][0]['id'],stale_id)
+
+    def test_recovery_waits_for_live_worker_lock(self):
+        folder=self.manager.path('f'*32);folder.mkdir()
+        write(folder/'state.json',dict(status='interrupted'))
+        with (self.manager.directory/'active.lock').open('a+') as lock:
+            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            self.assertFalse(self.manager.recovery()['required'])
+            with self.assertRaises(BusyError):self.manager.submit({'action':'stop_services'})
+        self.assertTrue(self.manager.recovery()['required'])
+
+    def test_successful_recovery_unlocks_analysis_and_preserves_data_and_history(self):
+        folder=self.manager.path('f'*32);folder.mkdir()
+        write(folder/'state.json',dict(id='f'*32,status='interrupted',spec={'action':'workflow'},stages=[]))
+        (folder/'worker.log').write_text('Previous diagnostics')
+        data=self.root/'data/retained-input';data.write_text('Keep original data')
+        self.assertEqual(self.client.post('/api/control/jobs',json={'action':'workflow','foods':100},headers=self.headers).status_code,409)
+        with patch('fdc.dashboard_jobs.subprocess.Popen'):
+            response=self.client.post('/api/control/jobs',json={'action':'stop_services'},headers=self.headers)
+        self.assertEqual(response.status_code,202)
+        worker=Worker(self.root,response.json['id'])
+        with patch.object(worker,'check_tools'),patch.object(worker,'command') as command,patch.object(worker,'stop_mongo') as stop_mongo:
+            worker.run()
+        command.assert_called_once()
+        stop_mongo.assert_called_once()
+        self.assertEqual(json.loads((worker.folder/'state.json').read_text())['status'],'succeeded')
+        previous=json.loads((folder/'state.json').read_text())
+        self.assertEqual(previous['status'],'interrupted')
+        self.assertIn('recovered_at',previous)
+        self.assertEqual((folder/'worker.log').read_text(),'Previous diagnostics')
+        self.assertEqual(data.read_text(),'Keep original data')
+        self.assertFalse(self.client.get('/api/control/jobs').json['recovery']['required'])
+        with patch('fdc.dashboard_jobs.subprocess.Popen'):
+            response=self.client.post('/api/control/jobs',json={'action':'workflow','foods':100},headers=self.headers)
+        self.assertEqual(response.status_code,202)
+
+    def test_failed_service_stop_does_not_clear_recovery(self):
+        import subprocess
+        folder=self.manager.path('f'*32);folder.mkdir()
+        write(folder/'state.json',dict(id='f'*32,status='interrupted',spec={'action':'workflow'},stages=[]))
+        with patch('fdc.dashboard_jobs.subprocess.Popen'):
+            state=self.manager.submit({'action':'stop_services'})
+        worker=Worker(self.root,state['id'])
+        with patch.object(worker,'check_tools'),patch.object(worker,'command',side_effect=subprocess.CalledProcessError(1,['docker','compose','stop'])):
+            worker.run()
+        self.assertEqual(json.loads((worker.folder/'state.json').read_text())['status'],'failed')
+        self.assertNotIn('recovered_at',json.loads((folder/'state.json').read_text()))
+        self.assertTrue(self.manager.recovery()['required'])
+        with self.assertRaises(BusyError):self.manager.submit({'action':'workflow','foods':100})

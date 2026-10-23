@@ -3,7 +3,6 @@
 const assert = require('node:assert/strict');
 const {spawn} = require('node:child_process');
 const {chromium} = require('playwright');
-const {once} = require('node:events');
 const readline = require('node:readline');
 
 (async () => {
@@ -19,20 +18,34 @@ with tempfile.TemporaryDirectory() as root:
   let browser;
   try {
     const lines = readline.createInterface({input: server.stdout});
-    const port = (await once(lines, 'line'))[0];
+    let diagnostics='';
+    server.stderr.on('data',chunk=>{diagnostics=(diagnostics+chunk.toString()).slice(-8000);});
+    const port = await new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>reject(new Error('Flask fixture did not start: '+diagnostics)),15000);
+      const fail=error=>{clearTimeout(timeout);reject(error);};
+      server.once('error',fail);
+      server.once('exit',code=>fail(new Error('Flask fixture exited '+code+': '+diagnostics)));
+      lines.once('line',line=>{clearTimeout(timeout);resolve(line);});
+    });
+    assert.match(port,/^\d+$/,'Flask fixture must provide its listening port');
     browser = await chromium.launch({executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium', headless: true, args: ['--no-sandbox']});
     const page = await browser.newPage();
     const errors = [], logRequests = [];
     page.on('pageerror', e => errors.push(e.message));
     const old = {id:'a'.repeat(32),status:'succeeded',spec:{action:'workflow',foods:50000},created_at:'2026-01-01T00:00:00Z',stages:[{name:'Run and reconcile MapReduce, Pig and Hive',status:'passed'}],result:'data/realdev_123',hive_progress:{completed:8,expected:8},themes:[]};
-    let jobs = [old];
+    let jobs = [old], recovery = {required:false,jobs:[]};
     await page.route('**/api/control/jobs', async route => {
       if (route.request().method() === 'POST') {
+        if(route.request().postDataJSON().action==='stop_services') {
+          recovery={required:false,jobs:[]};
+          jobs=[{id:'c'.repeat(32),status:'running',spec:{action:'stop_services'},created_at:new Date().toISOString(),stages:[],themes:[]},...jobs];
+          return route.fulfill({status:202,json:jobs[0]});
+        }
         assert.deepEqual(route.request().postDataJSON(),{action:'workflow',foods:50000});
         jobs = [{id:'b'.repeat(32),status:'queued',spec:{action:'workflow',foods:50000},created_at:new Date().toISOString(),stages:[],themes:[]},old];
         return route.fulfill({status:202,json:jobs[0]});
       }
-      return route.fulfill({json:{jobs,exports:{},full_archive_available:true}});
+      return route.fulfill({json:{jobs,recovery,exports:{},full_archive_available:true}});
     });
     await page.route('**/api/control/jobs/*/log', route => {
       const id = route.request().url().split('/').at(-2);
@@ -79,10 +92,27 @@ with tempfile.TemporaryDirectory() as root:
     await waitText('#job-summary','Ready. No current analysis.');
     assert.equal(await page.locator('#job-stages li').count(),0);
     assert.equal((await page.locator('#job-log').textContent()).includes('CURRENT RUN OUTPUT'),false);
+    // An interruption is actionable before another analysis can be submitted.
+    jobs=[{...current,status:'interrupted',result:null},old];
+    recovery={required:true,jobs:[{id:current.id,status:'interrupted'}]};
+    await page.waitForSelector('#recovery-notice:not([hidden])');
+    await waitText('#job-summary','Recovery required');
+    assert.equal(await page.locator('#new-job button').isDisabled(),true);
+    assert.equal(await page.locator('[data-action="start_mongo"]').isDisabled(),true);
+    assert.equal(await page.locator('#recover-services').isEnabled(),true);
+    await page.click('#recover-services');
+    await waitText('#control-message','Stopping project services');
+    assert.equal(await page.locator('#recover-services').isDisabled(),true);
+    assert.equal(await page.locator('#new-job button').isDisabled(),true);
+    jobs[0].status='succeeded';
+    recovery={required:false,jobs:[]};
+    await waitText('#control-message','Services stopped successfully');
+    assert.equal(await page.locator('#recovery-notice').isVisible(),false);
+    assert.equal(await page.locator('#new-job button').isEnabled(),true);
     await page.setViewportSize({width:390,height:844});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     assert.deepEqual(errors,[]);
-    console.log('Browser checks passed: fresh idle, explicit history, clearing logs, new run, live operation/query/output, active reload, completed reload, mobile layout.');
+    console.log('Browser checks passed: fresh idle, explicit history, clearing logs, new run, live operation/query/output, active reload, completed reload, interruption recovery, mobile layout.');
   } finally {
     if(browser) await browser.close();
     server.kill();

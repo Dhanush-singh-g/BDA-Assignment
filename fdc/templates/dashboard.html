@@ -13,6 +13,7 @@
 <div class="eyebrow">NEW ANALYSIS</div><h2>How much data do you want to process?</h2>
 <p class="muted">Choose a size and start. MongoDB, Hadoop, Pig and Hive run in order; progress appears below.</p>
 <div class="source-note"><strong>USDA FoodData Central · October 2024</strong><br><small>Source database: <code>{{source_database}}</code> · Fixed</small></div>
+<div id="recovery-notice" class="notice" role="alert" hidden><strong>An earlier analysis was interrupted</strong><p>Stop project services once before starting again. Your MongoDB databases, HDFS data and saved results are kept. Previous runs and their logs remain available below.</p><button type="button" class="job-button" data-action="stop_services" id="recover-services">Stop services and recover</button></div>
 <form id="new-job"><div><label for="size">Dataset size</label><br><select id="size"><option value="10000">10,000 foods — small test</option><option value="50000" selected>50,000 foods — tested on your laptop</option><option value="100000">100,000 foods — larger test</option><option value="custom">Choose another size…</option><option value="full">Entire dataset — all foods</option></select></div><div id="custom-size-wrap" hidden><label for="custom-size">Number of foods</label><br><input id="custom-size" type="number" min="1" max="100000" value="25000" step="1"></div><button type="submit" class="job-button primary">Start analysis</button></form>
 <p id="size-help" class="muted"></p>
 <p id="archive-message" class="muted" hidden></p>
@@ -109,7 +110,9 @@
       if(!response.ok)throw new Error('Could not load analysis progress');
       const data=await response.json();states=data.jobs;archiveAvailable=data.full_archive_available;sizeHelp();
       const active=states.find(j=>['queued','running'].includes(j.status));
-      document.querySelectorAll('.job-button').forEach(b=>b.disabled=!!active||starting);
+      const recoveryRequired=!!data.recovery?.required;
+      document.getElementById('recovery-notice').hidden=!recoveryRequired;
+      document.querySelectorAll('.job-button').forEach(b=>b.disabled=!!active||starting||(recoveryRequired&&b.dataset.action!=='stop_services'));
       const exp=document.getElementById('export-choice'),old=exp.value;
       exp.replaceChildren();
       Object.entries(data.exports).forEach(([key,item])=>exp.add(new Option(item.foods.toLocaleString()+' foods · '+key.split('/').pop(),key)));
@@ -157,10 +160,12 @@
           }
         } else if(chosen===job.id)document.getElementById('job-log').textContent='Could not load logs; retrying on the next update.';
       } else {clearProgress();}
+      if(recoveryRequired&&!job)summary.textContent='Recovery required before another analysis.';
       if(requestError)message.textContent=requestError;
-      else if(active)message.textContent=history?'A current job is running. You are viewing saved activity; use Back to current analysis to follow it.':'Analysis is running. Current process and logs refresh every two seconds.';
+      else if(active)message.textContent=history?'A current job is running. You are viewing saved activity; use Back to current analysis to follow it.':active.spec.action==='stop_services'?'Stopping project services. Your data and saved results are kept.':'Analysis is running. Current process and logs refresh every two seconds.';
+      else if(recoveryRequired)message.textContent='Click Stop services and recover above, wait for success, then start a new analysis.';
       else if(history)message.textContent='Viewing previous activity. Choose a size and Start analysis for a new run.';
-      else if(job)message.textContent=job.status==='succeeded'?'This run finished. Open its results below, or start another analysis.':'This run stopped. Check its status and logs below.';
+      else if(job)message.textContent=job.status==='succeeded'?(job.spec.action==='stop_services'?'Services stopped successfully. You can now start a new analysis.':'This run finished. Open its results below, or start another analysis.'):'This run stopped. Check its status and logs below.';
       else message.textContent='Ready. Choose a dataset size and click Start analysis. Previous runs are available separately.';
     } catch(error) {message.textContent=error.message;}
     finally {polling=false;}

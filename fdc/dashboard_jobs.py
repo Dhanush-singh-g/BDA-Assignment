@@ -88,6 +88,25 @@ class JobManager:
             raise ValueError('Invalid job identifier')
         return self.directory / job_id
 
+    def unrecovered_jobs(self):
+        """Include older interrupted jobs, even outside the recent-history limit."""
+        found = []
+        for path in self.directory.glob('*/state.json'):
+            previous = read(path)
+            if previous.get('status') in {'queued', 'running', 'interrupted'} and not previous.get('recovered_at'):
+                found.append({'id': path.parent.name, 'status': previous['status']})
+        return found
+
+    def recovery(self):
+        with (self.directory / 'active.lock').open('a+') as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                # A live worker owns the services; recovery must wait for it.
+                return {'required': False, 'jobs': []}
+            jobs = self.unrecovered_jobs()
+            return {'required': bool(jobs), 'jobs': jobs}
+
     def submit(self, payload):
         if not isinstance(payload, dict) or set(payload) - {'action', 'foods', 'export'}:
             raise ValueError('Unsupported job fields')
@@ -117,11 +136,8 @@ class JobManager:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
                 raise BusyError('Another dashboard job is running; wait for it to finish') from None
-            if action != 'stop_services':
-                for path in self.directory.glob('*/state.json'):
-                    previous = read(path)
-                    if previous.get('status') in {'queued', 'running', 'interrupted'} and not previous.get('recovered_at'):
-                        raise BusyError('A previous worker was interrupted. Inspect logs, then use Stop project services before another job.')
+            if action != 'stop_services' and self.unrecovered_jobs():
+                raise BusyError('An earlier analysis was interrupted. Use Stop services and recover in Run analysis before starting again.')
             job_id = uuid.uuid4().hex
             folder = self.path(job_id)
             folder.mkdir()

@@ -63,6 +63,19 @@ jobs at the same time. There is no force-cancel button. Inspect failures before
 rerunning; old data is not deleted automatically. For physical college systems,
 use the separate lab guide; these controls manage the laptop Docker stack only.
 
+### If an earlier analysis was interrupted
+
+The page shows **Stop services and recover** above the dataset selection. Click
+it and wait for **Services stopped successfully**. Then choose a size and click
+**Start analysis**. This keeps MongoDB databases, HDFS files, saved results and
+the earlier run's logs; it stops services before starting a fresh workflow.
+
+While recovery is required, analysis/start-service buttons are disabled. If
+stopping services fails, read that job's technical log; the recovery notice stays
+until the stop succeeds. An active UI job remains protected by the process lock.
+On an older checkout, expand **Reuse prepared data or manage services** and use
+**Stop project services** for the same reset. A stopped run is not resumed.
+
 ## 3. Prefer Terminal commands?
 
 This starts the master and two worker containers, checks they can communicate,

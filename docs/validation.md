@@ -160,6 +160,20 @@ RCFile is not automatically described as better. Native and container topology
 remain separately identified. This UI work does not complete final full-data or
 physical-cluster submission evidence.
 
+## Interrupted-job recovery controls
+
+- A visible **Stop services and recover** action now appears before a new
+  analysis can be submitted. Recovery detection includes older interrupted jobs
+  outside the 20-item recent-history list. A live worker's lock still prevents
+  service recovery from interrupting active work.
+- Successful service stopping clears the interruption block while preserving
+  input files and prior job logs; a failed stop leaves the block in place.
+  These paths have API/worker regression coverage with service calls mocked.
+- The Python suite ran 50 tests: 49 passed and the optional MongoDB integration
+  test was skipped. Chromium checks passed, including the visible recovery
+  action, disabled analysis controls during recovery, and re-enabled controls
+  after success. The browser fixture now fails explicitly if Flask cannot start.
+
 ## Current-run status and live operations
 
 - All **46 Python tests passed**, including MongoDB integration. New checks use

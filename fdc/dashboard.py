@@ -129,7 +129,8 @@ def create_app(root=ROOT, controls=True):
 
     @app.get('/api/control/jobs')
     def control_jobs():
-        return jsonify(jobs=manager.jobs(), exports=exports(root), source_database=SOURCE_DATABASE, full_archive_available=full_archive(root) is not None)
+        jobs = manager.jobs()
+        return jsonify(jobs=jobs, recovery=manager.recovery(), exports=exports(root), source_database=SOURCE_DATABASE, full_archive_available=full_archive(root) is not None)
 
     @app.post('/api/control/jobs')
     def control_start():
