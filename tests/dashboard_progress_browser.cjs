@@ -70,6 +70,11 @@ with tempfile.TemporaryDirectory() as root:
     });
     const waitText = async (selector, text) => page.waitForFunction(({selector,text}) => document.querySelector(selector)?.textContent.includes(text),{selector,text});
     await page.goto('http://127.0.0.1:'+port);
+    assert.equal(await page.locator('.section-nav').isVisible(),true);
+    for(const target of await page.locator('.section-nav a').evaluateAll(links=>links.map(a=>a.getAttribute('href').slice(1)))) {
+      assert.equal(await page.locator('[id="'+target+'"]').count(),1);
+    }
+    if(process.env.FDC_UI_CAPTURE)await page.screenshot({path:process.env.FDC_UI_CAPTURE+'-desktop.png'});
     assert.equal(await page.locator('#aggregation-guide').isVisible(),true);
     assert.equal(await page.locator('#hdfs-guide').isVisible(),true);
     assert.equal(await page.locator('#hive-guide').isVisible(),true);
@@ -140,6 +145,9 @@ with tempfile.TemporaryDirectory() as root:
     await page.click('#results-tab');
     assert.equal(await page.locator('#hive-time').isVisible(),true);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await page.evaluate(()=>window.scrollTo(0,0));
+    assert.equal(await page.locator('#results-tab').getAttribute('aria-pressed'),'true');
+    if(process.env.FDC_UI_CAPTURE){await page.waitForTimeout(250);await page.screenshot({path:process.env.FDC_UI_CAPTURE+'-mobile.png'});}
     assert.deepEqual(errors,[]);
     console.log('Browser checks passed: fresh idle, explicit history, clearing logs, new run, live operation/query/output, active reload, completed reload, interruption recovery, mobile layout.');
   } finally {

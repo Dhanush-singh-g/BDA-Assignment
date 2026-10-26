@@ -116,6 +116,9 @@ one physical laptop; the required college deployment remains a separate step.
 ## Show each assignment theme clearly
 
 In **View results**, use **Assignment coverage** to jump to Theme 1, 2 or 3.
+The sticky section bar also jumps directly to MongoDB, Before & after, Hadoop,
+Pig & Hive, query times, storage and nutrition. Linked-document JSON is expandable
+under its readable preview table. The layout adapts to desktop and phone widths.
 Expand the evidence sections for collection counts, aggregation operators,
 executionStats, HDFS commands, MapReduce source/job IDs, Pig counts/script,
 Hive table/query HQL and storage savings (or extra space used). New analyses

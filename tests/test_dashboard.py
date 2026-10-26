@@ -135,3 +135,16 @@ class DashboardTests(unittest.TestCase):
         self.assertIn(b'After linking',html)
         self.assertIn(b'Foods By Type',html)
         self.assertNotIn(b'Raw document examples were not archived',html)
+
+    def test_stylesheet_loads_and_result_navigation_has_real_targets(self):
+        import re
+        self.seed()
+        html=self.client.get('/').data.decode()
+        href=re.search(r'<link rel="stylesheet" href="([^"]+)"',html)[1]
+        css=self.client.get(href)
+        self.assertEqual(css.status_code,200)
+        self.assertIn('text/css',css.content_type)
+        nav=html.split('aria-label="Result sections"',1)[1].split('</nav>',1)[0]
+        for target in re.findall(r'href="#([^"]+)"',nav):
+            self.assertIn('id="'+target+'"',html)
+        self.assertEqual(create_app(self.root,controls=False).test_client().get(href).status_code,200)

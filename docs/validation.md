@@ -1,5 +1,18 @@
 # Validation record
 
+## Visual refinement
+
+The dashboard uses a local stylesheet, a clearer header, consistent cards and
+tables, mobile layouts and a sticky results-section navigation bar. Linked
+documents have a readable preview table with expandable JSON. Processing and
+the physical-cluster setup are unchanged. Stylesheet delivery is verified in
+both normal and view-only modes, and navigation targets are checked.
+
+The Python suite ran 61 tests: 60 passed and the optional MongoDB integration
+test was skipped. Chromium checks passed for desktop/mobile results, saved
+examples, paired timings, progress and interrupted-job recovery. Desktop and
+mobile screenshots were visually inspected using synthetic fixture data.
+
 ## Persistent before/after view and older-run previews
 
 The BEFORE, LINKING and AFTER panels now remain visible independently of
