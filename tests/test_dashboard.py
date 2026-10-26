@@ -148,3 +148,12 @@ class DashboardTests(unittest.TestCase):
         for target in re.findall(r'href="#([^"]+)"',nav):
             self.assertIn('id="'+target+'"',html)
         self.assertEqual(create_app(self.root,controls=False).test_client().get(href).status_code,200)
+
+    def test_results_follow_three_themes_with_one_technical_expander(self):
+        self.seed()
+        html=self.client.get('/').data.decode()
+        results=html.split('<div id="results-view">',1)[1]
+        self.assertEqual(results.count('<details'),1)
+        for label in ['Theme 1','Theme 2','Theme 3','Copy command','Verify the folders']:
+            self.assertIn(label,results)
+        self.assertIn('not executed automatically',results)

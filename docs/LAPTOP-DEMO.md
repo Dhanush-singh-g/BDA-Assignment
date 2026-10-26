@@ -115,11 +115,12 @@ one physical laptop; the required college deployment remains a separate step.
 
 ## Show each assignment theme clearly
 
-In **View results**, use **Assignment coverage** to jump to Theme 1, 2 or 3.
-The sticky section bar also jumps directly to MongoDB, Before & after, Hadoop,
-Pig & Hive, query times, storage and nutrition. Linked-document JSON is expandable
-under its readable preview table. The layout adapts to desktop and phone widths.
-Expand the evidence sections for collection counts, aggregation operators,
+In **View results**, follow the Theme 1, Theme 2 and Theme 3 sections in order.
+The sticky section bar follows the three assignment themes. Each theme shows
+partial results followed by the matching read-only verification commands and
+**Copy command** buttons. JSON, source code and detailed evidence are grouped
+in one optional technical panel. The layout adapts to desktop and phone widths.
+Open the optional technical panel for collection counts, aggregation operators,
 executionStats, HDFS commands, MapReduce source/job IDs, Pig counts/script,
 Hive table/query HQL and storage savings (or extra space used). New analyses
 also show live requirement checklists in **Run analysis**. Older results are

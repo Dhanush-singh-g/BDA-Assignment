@@ -188,7 +188,12 @@ def details(folder, root, mongo, profile, hive, source_hash):
     operator_info = [('$match','Filter food types and usable nutrient values'),('$group','Count records and calculate sums/averages'),
                      ('$project','Choose and rename output fields'),('$unwind','Expand each food’s nutrient array'),
                      ('$facet','Calculate several overview summaries together')]
-    return dict(mongo_examples=mongo_examples(mongo, source_hash, input_record) if (profile_ok or input_ok) else {'documents': {}, 'aggregations': {}}, themes=cards(statuses), timeline_recorded=(folder/'activity.json').is_file() or bool(context),
+    from .presentation import commands, input_sample
+    examples=mongo_examples(mongo, source_hash, input_record) if (profile_ok or input_ok) else {'documents':{},'aggregations':{}}
+    database=input_record.get('database') or examples['documents'].get('database')
+    hive_database=success.get('hive_database') or ('fdc_'+context['run_id'] if context.get('run_id') else None)
+    verify_commands=commands(database,hdfs,hive_database,native=context.get('deployment_kind','').startswith('cluster-client'),pipeline_definitions=definitions)
+    return dict(verify_commands=verify_commands, input_sample=input_sample(folder,root,context,success,source_hash), mongo_examples=examples, themes=cards(statuses), timeline_recorded=(folder/'activity.json').is_file() or bool(context),
         collections=input_record.get('tables',{}), source_import=input_record.get('source_import',{}),
         database=input_record.get('database'),
         preview_command='.venv/bin/python -m fdc.preview --results '+shlex.quote(mongo.relative_to(Path(root)).as_posix())+(' --database '+shlex.quote(input_record['database']) if input_record.get('database') else ''),

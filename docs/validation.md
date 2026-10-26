@@ -1,5 +1,22 @@
 # Validation record
 
+## Theme-by-theme presentation and source verification
+
+The main results now follow Theme 1, Theme 2 and Theme 3 with visible partial
+results and adjacent, copyable verification commands. One optional technical
+panel holds source code and detailed JSON. Commands use recorded database/HDFS
+names; unavailable identities are labelled rather than guessed. Native-run
+HDFS/YARN/Hive commands omit Docker Compose. Database/file inspection commands
+do not run automatically from the page, and stored measurements are unchanged.
+
+All 66 Python tests passed with MongoDB integration enabled. Eight generated
+MongoDB verification commands were executed successfully against an isolated
+synthetic fixture database. Tests also cover shell quoting, rejected write
+pipelines, native commands, bounded prepared-file previews and source identity.
+Browser checks passed for the three-section navigation, one technical expander,
+visible previews/commands, clipboard copying, mobile layout, progress and recovery.
+No full USDA or three-physical-system execution is claimed by these UI checks.
+
 ## Visual refinement
 
 The dashboard uses a local stylesheet, a clearer header, consistent cards and

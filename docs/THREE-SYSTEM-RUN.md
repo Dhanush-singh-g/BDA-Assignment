@@ -826,6 +826,12 @@ Theme 1 shows **BEFORE** raw rows, **LINKING** derived documents and **AFTER**
 aggregation answers. New analyses capture these previews automatically on MASTER;
 the workers and Hadoop configuration need no changes. The view-only dashboard
 reads saved files and does not contact MongoDB or start containers when opened.
+The results are organized into the three assignment themes, with partial results
+and visible **Copy command** verification blocks beside them. For a recorded
+native run, HDFS/YARN/Hive commands run directly on MASTER, without Docker Compose.
+MongoDB commands use the MongoDB container installed on MASTER in step 9. These
+buttons copy text only; execute it yourself in MASTER's Terminal with the relevant
+service running. The single optional technical panel contains source/JSON details.
 
 For an older completed run without raw previews, with MongoDB already running
 on MASTER as in step 9, you can add a small preview without rerunning any analysis:

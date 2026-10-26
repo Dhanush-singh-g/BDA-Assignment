@@ -1,5 +1,11 @@
 # Presentation commands — laptop Docker setup
 
+The dashboard now places these source-verification commands beside the relevant
+partial results under Theme 1, Theme 2 and Theme 3. **Copy command** copies text;
+it does not execute anything. Commands use the selected run's recorded database
+and HDFS path. Missing source names are labelled rather than guessed. Viewing
+saved results needs no services; executing a command requires its service.
+
 Run commands in **Ubuntu Terminal**, from `~/BDA-Assignment`. Keep a second
 terminal for inspection while the dashboard is open. This guide is for your
 laptop containers; use `docs/THREE-SYSTEM-RUN.md` for native lab machines.

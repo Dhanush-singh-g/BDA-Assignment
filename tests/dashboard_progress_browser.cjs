@@ -14,7 +14,7 @@ from werkzeug.serving import make_server
 with tempfile.TemporaryDirectory() as root:
     result = Path(root)/'data/realdev_browser'
     (result/'hive').mkdir(parents=True)
-    (result/'SUCCESS.json').write_text(json.dumps({'scope':'synthetic browser fixture','counts':{'clean_rows':3},'parent_source_sha256':'a'*64}))
+    (result/'SUCCESS.json').write_text(json.dumps({'scope':'synthetic browser fixture','counts':{'clean_rows':3},'parent_source_sha256':'a'*64,'hdfs':'/user/root/fdc/realdev_browser','hive_database':'fdc_realdev_browser'}))
     (result/'hive/benchmark.json').write_text(json.dumps({'complete':True,'runs':[
         {'query':'nutrient_summary','table':'nutrients_text','warmup':False,'seconds':2},
         {'query':'nutrient_summary','table':'nutrients_rcfile','warmup':False,'seconds':0}]}))
@@ -27,6 +27,9 @@ with tempfile.TemporaryDirectory() as root:
         'raw_nutrient':[{'id':'1003','name':'Protein'}],
         'foods':[{'fdc_id':'10','nutrients':[{'nutrient_id':1003,'amount':4}]}]}))
     (mongo/'foods_by_type.jsonl').write_text(json.dumps({'data_type':'branded_food','foods':1})+'\\n')
+    prepared=result/'prepared';prepared.mkdir()
+    (prepared/'manifest.json').write_text(json.dumps({'source_sha256':'a'*64}))
+    (prepared/'food_nutrients.tsv').write_text('10\\tbranded_food\\tcat\\t1003\\tProtein\\tg\\t4\\n')
     server = make_server('127.0.0.1', 0, create_app(root))
     print(server.server_port, flush=True)
     server.serve_forever()
@@ -83,6 +86,13 @@ with tempfile.TemporaryDirectory() as root:
     assert.equal(await page.locator('#mongo-before').isVisible(),true);
     assert.equal(await page.locator('#mongo-after').isVisible(),true);
     assert.equal(await page.locator('#mongo-before table').count(),2);
+    assert.equal(await page.locator('#results-view details').count(),1);
+    assert.equal(await page.locator('.section-nav a').count(),3);
+    await page.evaluate(()=>{window.copiedCommand='';Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedCommand=value;}}});});
+    await page.locator('.copy-command').first().click();
+    assert.ok((await page.evaluate(()=>window.copiedCommand)).includes('fdc_browser'));
+    await waitText('#theme2','/user/root/fdc/realdev_browser/prepared/food_nutrients.tsv');
+    if(process.env.FDC_UI_CAPTURE){await page.locator('#mongo-before').scrollIntoViewIfNeeded();await page.screenshot({path:process.env.FDC_UI_CAPTURE+'-proof.png'});}
     await waitText('#hive-time','0.00');
     await waitText('#hive-time','2.00');
     await page.click('#analysis-tab');

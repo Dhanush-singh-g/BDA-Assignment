@@ -40,7 +40,8 @@ Dataset: [entire October 31, 2024 CSV package](https://fdc.nal.usda.gov/fdc-data
 The dashboard separates **View results** from **Run analysis**. Choose a subset,
 a custom size, or the entire dataset using the fixed source database. Optional
 controls reuse exports and switch services; progress/errors update automatically.
-Each theme has a requirement checklist with code and measured evidence. On the
+Each theme shows partial results with copyable source-verification commands;
+source code and detailed JSON are grouped in one optional technical panel. On the
 college master use `--view-only` so laptop Docker controls are disabled. See the
 [laptop guide](docs/LAPTOP-DEMO.md).
 
