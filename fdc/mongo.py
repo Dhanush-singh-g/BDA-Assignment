@@ -110,6 +110,8 @@ def capture_previews(db, manifest, database, output, derived=False):
     nutrient_ids = [row.get('nutrient_id') for row in observations]
     definitions = list(db.raw_nutrient.find({'id': {'$in': nutrient_ids}}).limit(5))
     record = {'source_sha256': manifest['source_sha256'], 'database': database,
+              'captured_at': datetime.now(timezone.utc).isoformat(),
+              'capture_context': 'Captured during this analytical run',
               'food_limit': 3, 'observation_limit': 5, 'string_limit': 300,
               'raw_food': foods, 'raw_food_nutrient': observations, 'raw_nutrient': definitions}
     if derived:

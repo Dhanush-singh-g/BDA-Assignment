@@ -112,9 +112,12 @@ class DashboardTests(unittest.TestCase):
     def test_older_mongo_run_displays_saved_outputs_without_fabricated_documents(self):
         self.seed()
         html=self.client.get('/').data
-        self.assertIn(b'See the data: before and after aggregation',html)
+        self.assertIn(b'MongoDB data: before',html)
         self.assertIn(b'Raw document examples were not archived',html)
-        self.assertIn(b'After aggregation',html)
+        self.assertIn(b'Calculated aggregation answers',html)
+        self.assertIn(b'id="mongo-before"',html)
+        self.assertIn(b'Before preview not recorded',html)
+        self.assertLess(html.index(b'id="mongo-before"'),html.index(b'id="mongo-after"'))
 
     def test_saved_document_previews_render_with_matching_import_metadata(self):
         run=self.seed();mongo=run/'mongo';mongo.mkdir()

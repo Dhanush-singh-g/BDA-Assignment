@@ -135,6 +135,12 @@ food documents and saved aggregation outputs. New analyses archive bounded
 document previews; older runs label missing raw snapshots while retaining their
 saved summary outputs. Use [command.md](../command.md) to inspect the actual
 MongoDB collections, local files, HDFS records, Hive tables and Docker logs.
+The BEFORE panel is always visible and includes a preview-only command for
+older runs. Start MongoDB when no analysis is active, run that command and
+refresh. It reads the matching database and adds a preview without rerunning
+analytics or changing measurements; newly captured snapshots show their origin
+and timestamp. BEFORE/AFTER tables keep individual records and grouped answers
+visually separate.
 
 For a results-only demonstration with all execution buttons disabled:
 

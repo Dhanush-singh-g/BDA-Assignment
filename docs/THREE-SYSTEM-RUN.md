@@ -822,6 +822,28 @@ disk use and diagnosing the cause.
 
 ## 12. MASTER: check success and show the dashboard
 
+Theme 1 shows **BEFORE** raw rows, **LINKING** derived documents and **AFTER**
+aggregation answers. New analyses capture these previews automatically on MASTER;
+the workers and Hadoop configuration need no changes. The view-only dashboard
+reads saved files and does not contact MongoDB or start containers when opened.
+
+For an older completed run without raw previews, with MongoDB already running
+on MASTER as in step 9, you can add a small preview without rerunning any analysis:
+
+```bash
+cd ~/BDA-Assignment
+.venv/bin/python -m fdc.preview --results results/college_full01/mongo
+```
+
+This reads the original analytical database recorded in `profile.json`, checks
+its source/count/selection metadata and writes only a new `previews.json`.
+Existing query answers, timings and database records are unchanged. The preview
+is labelled as captured from the current matching database, not as a historical
+snapshot. If an old profile omitted its database name, supply `--database` with
+that run's original database name. If the original database is unavailable or
+does not match, the dashboard keeps a visible “Before preview not recorded”
+panel. Do not substitute a different dataset. Refresh after capturing.
+
 After successful completion:
 
 ```bash

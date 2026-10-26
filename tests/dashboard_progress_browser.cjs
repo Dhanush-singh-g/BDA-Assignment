@@ -75,6 +75,9 @@ with tempfile.TemporaryDirectory() as root:
     assert.equal(await page.locator('#hive-guide').isVisible(),true);
     await waitText('#mongo-data-preview','Browser fixture food');
     await waitText('#mongo-data-preview','After linking');
+    assert.equal(await page.locator('#mongo-before').isVisible(),true);
+    assert.equal(await page.locator('#mongo-after').isVisible(),true);
+    assert.equal(await page.locator('#mongo-before table').count(),2);
     await waitText('#hive-time','0.00');
     await waitText('#hive-time','2.00');
     await page.click('#analysis-tab');

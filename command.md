@@ -73,6 +73,34 @@ to `mongodb://localhost:27017` while MongoDB is running.
 
 ## 3. Locate and view ordinary local files
 
+### Add the missing BEFORE preview to an older analysis
+
+With MongoDB running and no analysis active, run this in Ubuntu for your earlier
+50-food UI experiment:
+
+```bash
+cd ~/BDA-Assignment
+.venv/bin/python -m fdc.preview \
+  --results results/mongo/ui50_7963172fc4cb41e1
+```
+
+For the earlier manual 50,000-food experiment, whose older profile may not record
+its database name:
+
+```bash
+.venv/bin/python -m fdc.preview \
+  --results results/mongo/dev50k_01 --database fdc_dev50k_01
+```
+
+Choose the command matching the saved result you are showing. This reads the
+matching database and saves a new preview file; it does not rerun analytics,
+change database records or replace measured results. Existing previews are kept.
+Refresh the website afterward. Its BEFORE panel always remains visible, with
+an explicit message when an older run has no raw examples. A newly captured
+preview is labelled with its capture time and current-database origin.
+
+### Browse the saved files
+
 In Ubuntu Terminal, select an evidence folder. This example is your earlier
 50,000-food run; change the value to the folder selected in the dashboard:
 

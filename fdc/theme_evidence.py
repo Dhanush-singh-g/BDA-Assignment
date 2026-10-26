@@ -1,6 +1,7 @@
 """Translate recorded artifacts into assignment requirements without rerunning jobs."""
 import json
 import re
+import shlex
 from pathlib import Path
 from .progress import REQUIREMENTS
 
@@ -92,11 +93,12 @@ def source_programs(folder):
                   'recorded': key in archived} for key, path in names.items()}
 
 
-def mongo_examples(mongo, source_hash):
+def mongo_examples(mongo, source_hash, profile=None):
     """Read archived examples without requiring a running MongoDB service."""
     import itertools
     record = read(mongo / 'previews.json', {})
-    if record.get('source_sha256') != source_hash:
+    if (record.get('source_sha256') != source_hash or
+            (profile and profile.get('database') and record.get('database') != profile['database'])):
         record = {}
     aggregates = {}
     for name in ('foods_by_type', 'nutrient_summary', 'overview'):
@@ -186,9 +188,10 @@ def details(folder, root, mongo, profile, hive, source_hash):
     operator_info = [('$match','Filter food types and usable nutrient values'),('$group','Count records and calculate sums/averages'),
                      ('$project','Choose and rename output fields'),('$unwind','Expand each food’s nutrient array'),
                      ('$facet','Calculate several overview summaries together')]
-    return dict(mongo_examples=mongo_examples(mongo, source_hash) if (profile_ok or input_ok) else {'documents': {}, 'aggregations': {}}, themes=cards(statuses), timeline_recorded=(folder/'activity.json').is_file() or bool(context),
+    return dict(mongo_examples=mongo_examples(mongo, source_hash, input_record) if (profile_ok or input_ok) else {'documents': {}, 'aggregations': {}}, themes=cards(statuses), timeline_recorded=(folder/'activity.json').is_file() or bool(context),
         collections=input_record.get('tables',{}), source_import=input_record.get('source_import',{}),
         database=input_record.get('database'),
+        preview_command='.venv/bin/python -m fdc.preview --results '+shlex.quote(mongo.relative_to(Path(root)).as_posix())+(' --database '+shlex.quote(input_record['database']) if input_record.get('database') else ''),
         indexes=profile.get('indexes',read(mongo / 'indexes.json',{})) if (profile_ok or input_ok) else {}, operators=operator_info,
         pipelines=json.dumps(definitions,indent=2), pipelines_recorded=(profile_ok or input_ok) and (mongo/'pipelines.json').is_file(),
         explain=explain, explain_json=json.dumps(profile.get('profiles',[]) if profile_ok else [],indent=2),

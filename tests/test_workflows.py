@@ -165,6 +165,14 @@ class MongoIntegrationTests(unittest.TestCase):
                 self.assertTrue(all(r['fdc_id']==previews['raw_food'][0]['fdc_id'] for r in previews['raw_food_nutrient']))
                 self.assertIn('[preview shortened]',previews['raw_food'][1]['description'])
                 self.assertEqual(len(db.raw_food.find_one({'fdc_id':'20'})['description']),140000)
+                from fdc.preview import add_previews
+                recorded_profile=(path/'results/profile.json').read_bytes()
+                (path/'results/previews.json').unlink()
+                restored=add_previews(path/'results')
+                self.assertFalse(restored['analysis_rerun'])
+                self.assertEqual((path/'results/profile.json').read_bytes(),recorded_profile)
+                self.assertTrue(json.loads((path/'results/previews.json').read_text())['raw_food'])
+
                 self.assertEqual(profile['source_import']['tables'], manifest['tables'])
                 self.assertEqual(profile['source_import']['database'], database)
                 self.assertIn('idx_fdc_id', profile['indexes']['raw_food'])

@@ -1,5 +1,20 @@
 # Validation record
 
+## Persistent before/after view and older-run previews
+
+The BEFORE, LINKING and AFTER panels now remain visible independently of
+snapshot availability. Raw foods/observations and grouped results use readable
+tables. A missing preview shows its status and a matching preview-only command.
+`fdc.preview` reads the original database after source/count/selection metadata
+checks, preserves existing snapshots and metrics, and labels captures made after
+the original run. It does not perform ingestion or rerun analytical pipelines.
+
+All 60 Python tests passed with MongoDB integration enabled, including actual
+preview backfill and unchanged profile bytes. Browser checks passed for visible
+before/after sections, mobile layout and existing progress/recovery controls.
+The three-system guide documents the same optional command on MASTER. Native
+cluster configuration, worker installation and distributed jobs are unchanged.
+
 ## MongoDB document previews and presentation commands
 
 New analytics runs archive small raw/derived MongoDB document previews with
