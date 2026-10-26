@@ -82,3 +82,29 @@ class DashboardTests(unittest.TestCase):
         self.assertIn(b'Index keys',page.data)
         self.assertNotIn(b'built-in method',page.data)
         self.assertEqual(self.client.get('/api/evidence?run=data/realdev_test').json['requirements']['explain'][1]['keys'],1)
+
+    def test_plain_language_guides_keep_explanations_separate_from_evidence(self):
+        self.seed()
+        page=self.client.get('/')
+        self.assertEqual(page.status_code,200)
+        for text in [b'What happens to the data?',b'Branch 1',b'Branch 2',
+                     b'Aggregation pipelines = processing records step by step',
+                     b'What is a checked download?',b'Created once per processing run',
+                     b'These are query times, not file creation times.',b'Illustration only']:
+            self.assertIn(text,page.data)
+        self.assertIn(b'Not verified yet',page.data)
+
+    def test_paired_hive_times_preserve_zero_and_missing_format(self):
+        run=self.seed()
+        bench=json.loads((run/'hive/benchmark.json').read_text())
+        bench['runs'] += [dict(query='nutrient_summary',table='nutrients_rcfile',warmup=False,seconds=0),
+                          dict(query='protein_summary',table='nutrients_text',warmup=False,seconds=8)]
+        (run/'hive/benchmark.json').write_text(json.dumps(bench))
+        html=self.client.get('/').data.decode()
+        comparison=html.split('id="hive-time"',1)[1].split('</section>',1)[0]
+        self.assertIn('<td>3.00</td>',comparison)
+        self.assertIn('<td>0.00</td>',comparison)
+        self.assertIn('<td>8.00</td>',comparison)
+        self.assertIn('Not recorded',comparison)
+        self.assertNotIn('99.00',comparison)
+        self.assertIn('2 / 1',comparison)

@@ -1,5 +1,18 @@
 # Validation record
 
+## Plain-language result explanations
+
+The results page now explains the two processing branches, five MongoDB
+aggregation operators, HDFS actions/round-trip integrity, and Hive's reusable
+Text/RCFile datasets. Query times are paired by question, with separate answer
+equality and storage explanations. Individual explain responses remain expandable.
+
+The Python suite ran 52 tests: 51 passed and the optional MongoDB integration
+test was skipped. Display tests check explanatory labels, warmup exclusion,
+zero-second values and missing format measurements. Chromium checks passed
+for the three guides, paired values, mobile layout, job progress and recovery.
+These are presentation changes; processing and deployment behavior is unchanged.
+
 ## Earlier cloud fixture validation
 
 - Python 3.12.14; pinned PyMongo 4.10.1 and dnspython 2.7.0 installed in `.venv`.

@@ -122,6 +122,14 @@ Hive table/query HQL and storage savings (or extra space used). New analyses
 also show live requirement checklists in **Run analysis**. Older results are
 supported; missing archived details are shown as missing, never invented.
 
+The results page also includes plain-language guides: the two processing
+branches, all five MongoDB operators, HDFS file actions and the checked download,
+and how Hive reuses Text/RCFile datasets. Query times appear side by side for
+each question; they are labelled as query execution times, not creation times.
+Storage measurements and answer equality are explained separately. Individual
+executionStats responses and source code remain expandable technical details.
+These explanations work with saved results; no new analysis is needed.
+
 For a results-only demonstration with all execution buttons disabled:
 
 ```bash

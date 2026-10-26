@@ -7,10 +7,18 @@ const readline = require('node:readline');
 
 (async () => {
   const server = spawn('.venv/bin/python', ['-u', '-c', `
-import tempfile
+import tempfile, json
+from pathlib import Path
 from fdc.dashboard import create_app
 from werkzeug.serving import make_server
 with tempfile.TemporaryDirectory() as root:
+    result = Path(root)/'data/realdev_browser'
+    (result/'hive').mkdir(parents=True)
+    (result/'SUCCESS.json').write_text(json.dumps({'scope':'synthetic browser fixture','counts':{'clean_rows':3}}))
+    (result/'hive/benchmark.json').write_text(json.dumps({'complete':True,'runs':[
+        {'query':'nutrient_summary','table':'nutrients_text','warmup':False,'seconds':2},
+        {'query':'nutrient_summary','table':'nutrients_rcfile','warmup':False,'seconds':0}]}))
+    (result/'hive/00-nutrient_summary-nutrients_text.tsv').write_text('branded_food\\t1003\\tg\\t3\\t12\\t4\\n')
     server = make_server('127.0.0.1', 0, create_app(root))
     print(server.server_port, flush=True)
     server.serve_forever()
@@ -54,6 +62,11 @@ with tempfile.TemporaryDirectory() as root:
     });
     const waitText = async (selector, text) => page.waitForFunction(({selector,text}) => document.querySelector(selector)?.textContent.includes(text),{selector,text});
     await page.goto('http://127.0.0.1:'+port);
+    assert.equal(await page.locator('#aggregation-guide').isVisible(),true);
+    assert.equal(await page.locator('#hdfs-guide').isVisible(),true);
+    assert.equal(await page.locator('#hive-guide').isVisible(),true);
+    await waitText('#hive-time','0.00');
+    await waitText('#hive-time','2.00');
     await page.click('#analysis-tab');
     await waitText('#job-summary','Ready. No current analysis.');
     assert.equal(await page.locator('#job-stages li').count(),0);
@@ -110,6 +123,9 @@ with tempfile.TemporaryDirectory() as root:
     assert.equal(await page.locator('#recovery-notice').isVisible(),false);
     assert.equal(await page.locator('#new-job button').isEnabled(),true);
     await page.setViewportSize({width:390,height:844});
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await page.click('#results-tab');
+    assert.equal(await page.locator('#hive-time').isVisible(),true);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     assert.deepEqual(errors,[]);
     console.log('Browser checks passed: fresh idle, explicit history, clearing logs, new run, live operation/query/output, active reload, completed reload, interruption recovery, mobile layout.');
