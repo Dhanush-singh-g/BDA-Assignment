@@ -14,11 +14,19 @@ from werkzeug.serving import make_server
 with tempfile.TemporaryDirectory() as root:
     result = Path(root)/'data/realdev_browser'
     (result/'hive').mkdir(parents=True)
-    (result/'SUCCESS.json').write_text(json.dumps({'scope':'synthetic browser fixture','counts':{'clean_rows':3}}))
+    (result/'SUCCESS.json').write_text(json.dumps({'scope':'synthetic browser fixture','counts':{'clean_rows':3},'parent_source_sha256':'a'*64}))
     (result/'hive/benchmark.json').write_text(json.dumps({'complete':True,'runs':[
         {'query':'nutrient_summary','table':'nutrients_text','warmup':False,'seconds':2},
         {'query':'nutrient_summary','table':'nutrients_rcfile','warmup':False,'seconds':0}]}))
     (result/'hive/00-nutrient_summary-nutrients_text.tsv').write_text('branded_food\\t1003\\tg\\t3\\t12\\t4\\n')
+    mongo=result/'mongo'; mongo.mkdir()
+    (mongo/'input.json').write_text(json.dumps({'source_sha256':'a'*64,'database':'fdc_browser','tables':{'food':1}}))
+    (mongo/'previews.json').write_text(json.dumps({'source_sha256':'a'*64,'database':'fdc_browser',
+        'raw_food':[{'fdc_id':'10','description':'Browser fixture food'}],
+        'raw_food_nutrient':[{'fdc_id':'10','nutrient_id':'1003','amount':'4'}],
+        'raw_nutrient':[{'id':'1003','name':'Protein'}],
+        'foods':[{'fdc_id':'10','nutrients':[{'nutrient_id':1003,'amount':4}]}]}))
+    (mongo/'foods_by_type.jsonl').write_text(json.dumps({'data_type':'branded_food','foods':1})+'\\n')
     server = make_server('127.0.0.1', 0, create_app(root))
     print(server.server_port, flush=True)
     server.serve_forever()
@@ -65,6 +73,8 @@ with tempfile.TemporaryDirectory() as root:
     assert.equal(await page.locator('#aggregation-guide').isVisible(),true);
     assert.equal(await page.locator('#hdfs-guide').isVisible(),true);
     assert.equal(await page.locator('#hive-guide').isVisible(),true);
+    await waitText('#mongo-data-preview','Browser fixture food');
+    await waitText('#mongo-data-preview','After linking');
     await waitText('#hive-time','0.00');
     await waitText('#hive-time','2.00');
     await page.click('#analysis-tab');

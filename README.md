@@ -14,6 +14,7 @@ Dataset: [entire October 31, 2024 CSV package](https://fdc.nal.usda.gov/fdc-data
 | Document | When you need it |
 | --- | --- |
 | [50,000-food laptop run](run%2050%2C000.md) | Commands, explanations and the saved 50,000-food dashboard run. |
+| [Presentation commands](command.md) | Inspect MongoDB, HDFS, Hive, Docker files and logs during the demo. |
 | [Laptop demo](docs/LAPTOP-DEMO.md) | Start the dashboard or repeat your small laptop test. |
 | [Three-system walkthrough](docs/THREE-SYSTEM-RUN.md) | Set up and run the full dataset on three college computers, step by step. |
 | [Architecture explained](docs/ARCHITECTURE.md) | Understand what the program and each tool do. |

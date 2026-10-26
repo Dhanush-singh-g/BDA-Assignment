@@ -97,3 +97,21 @@ class ThemeEvidenceTests(unittest.TestCase):
         details_data=details(self.run,self.root,self.mongo,{}, {},'a'*64)
         self.assertEqual(details_data['collections'],{'food':2})
         self.assertEqual(details_data['source_import']['tables'],{'food':20})
+
+    def test_archived_previews_require_matching_source_and_bound_aggregate_rows(self):
+        from fdc.theme_evidence import mongo_examples
+        save(self.mongo/'previews.json',{'source_sha256':'a'*64,'raw_food':[{'fdc_id':'10'}]})
+        (self.mongo/'foods_by_type.jsonl').write_text(''.join(json.dumps({'foods':i})+'\n' for i in range(10)))
+        found=mongo_examples(self.mongo,'a'*64)
+        self.assertEqual(found['documents']['raw_food'][0]['fdc_id'],'10')
+        self.assertEqual(len(found['aggregations']['foods_by_type']),5)
+        self.assertEqual(mongo_examples(self.mongo,'b'*64)['documents'],{})
+
+    def test_document_preview_truncation_does_not_change_source(self):
+        from fdc.mongo import preview_value
+        source={'description':'A'*1000,'nutrients':list(range(10))}
+        shown=preview_value(source)
+        self.assertIn('[preview shortened]',shown['description'])
+        self.assertEqual(shown['nutrients'],list(range(5)))
+        self.assertEqual(len(source['description']),1000)
+        self.assertEqual(len(source['nutrients']),10)

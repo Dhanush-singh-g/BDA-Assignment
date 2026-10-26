@@ -1,5 +1,20 @@
 # Validation record
 
+## MongoDB document previews and presentation commands
+
+New analytics runs archive small raw/derived MongoDB document previews with
+source identity. The dashboard displays those alongside saved pipeline outputs,
+without needing MongoDB to stay running. Legacy runs label unavailable raw
+snapshots; matching existing aggregation files remain visible. Preview limits
+shorten long strings and nutrient arrays only in the archived examples.
+
+All 56 Python tests passed with live MongoDB integration enabled. Checks cover
+source identity, raw-to-food linkage, unchanged original long strings, bounded
+previews, legacy rendering and actual saved preview rendering. Chromium checks
+passed with raw/derived examples, mobile layout, progress and recovery controls.
+The new `command.md` contains presentation inspection commands; its shell blocks
+were syntax-checked. No full USDA or physical-cluster run was performed here.
+
 ## Plain-language result explanations
 
 The results page now explains the two processing branches, five MongoDB

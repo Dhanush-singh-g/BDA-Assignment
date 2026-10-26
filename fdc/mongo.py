@@ -93,6 +93,30 @@ def pipelines():
     }
 
 
+def preview_value(value):
+    """Keep saved UI examples small; raw database documents are unchanged."""
+    if isinstance(value, str):
+        return value[:300] + '… [preview shortened]' if len(value) > 300 else value
+    if isinstance(value, dict):
+        return {key: preview_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [preview_value(item) for item in value[:5]]
+    return value
+
+
+def capture_previews(db, manifest, database, output, derived=False):
+    foods = list(db.raw_food.find({}).sort('_id', 1).limit(3))
+    observations = list(db.raw_food_nutrient.find({'fdc_id': foods[0]['fdc_id']}).limit(5)) if foods else []
+    nutrient_ids = [row.get('nutrient_id') for row in observations]
+    definitions = list(db.raw_nutrient.find({'id': {'$in': nutrient_ids}}).limit(5))
+    record = {'source_sha256': manifest['source_sha256'], 'database': database,
+              'food_limit': 3, 'observation_limit': 5, 'string_limit': 300,
+              'raw_food': foods, 'raw_food_nutrient': observations, 'raw_nutrient': definitions}
+    if derived:
+        record['foods'] = list(db.foods.find({}, {'nutrients': {'$slice': 5}}).sort('_id', 1).limit(3))
+    save_json(Path(output) / 'previews.json', preview_value(record))
+
+
 def analyze(database, output, repeats=5):
     if repeats < 1:
         raise ValueError("repeats must be positive")
@@ -133,6 +157,7 @@ def analyze(database, output, repeats=5):
             with timeline.operation("Build the nutrient-definition index"):
                 db.raw_nutrient.create_index([("id", ASCENDING)], name="idx_nutrient_id")
             save_json(output / 'indexes.json', {name: db[name].index_information() for name in ('raw_food_nutrient', 'raw_nutrient')})
+        capture_previews(db, manifest, database, output)
         materialize = [
             {"$lookup": {"from": "raw_food_nutrient", "localField": "fdc_id", "foreignField": "fdc_id",
                          "pipeline": [
@@ -159,6 +184,7 @@ def analyze(database, output, repeats=5):
                 with timeline.operation("Calculate " + name.replace("_", " ")), (output / f"{name}.jsonl").open("w") as stream:
                     for document in db.foods.aggregate(pipeline, allowDiskUse=True):
                         stream.write(json.dumps(document, allow_nan=False) + "\n")
+        capture_previews(db, manifest, database, output, derived=True)
         with timeline.stage("mongo_profile"):
             sample = db.raw_food.find_one({}, {"fdc_id": 1})
             if not sample:

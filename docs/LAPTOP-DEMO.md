@@ -130,6 +130,12 @@ Storage measurements and answer equality are explained separately. Individual
 executionStats responses and source code remain expandable technical details.
 These explanations work with saved results; no new analysis is needed.
 
+Theme 1 also shows raw food documents, linked nutrient observations, derived
+food documents and saved aggregation outputs. New analyses archive bounded
+document previews; older runs label missing raw snapshots while retaining their
+saved summary outputs. Use [command.md](../command.md) to inspect the actual
+MongoDB collections, local files, HDFS records, Hive tables and Docker logs.
+
 For a results-only demonstration with all execution buttons disabled:
 
 ```bash

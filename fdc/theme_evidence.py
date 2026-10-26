@@ -92,6 +92,21 @@ def source_programs(folder):
                   'recorded': key in archived} for key, path in names.items()}
 
 
+def mongo_examples(mongo, source_hash):
+    """Read archived examples without requiring a running MongoDB service."""
+    import itertools
+    record = read(mongo / 'previews.json', {})
+    if record.get('source_sha256') != source_hash:
+        record = {}
+    aggregates = {}
+    for name in ('foods_by_type', 'nutrient_summary', 'overview'):
+        path = mongo / (name + '.jsonl')
+        if path.is_file():
+            with path.open() as stream:
+                aggregates[name] = [json.loads(line) for line in itertools.islice(stream, 5)]
+    return {'documents': record, 'aggregations': aggregates}
+
+
 def details(folder, root, mongo, profile, hive, source_hash):
     success = read(folder / 'SUCCESS.json', {})
     context = read(folder / 'run.json', {})
@@ -171,7 +186,7 @@ def details(folder, root, mongo, profile, hive, source_hash):
     operator_info = [('$match','Filter food types and usable nutrient values'),('$group','Count records and calculate sums/averages'),
                      ('$project','Choose and rename output fields'),('$unwind','Expand each food’s nutrient array'),
                      ('$facet','Calculate several overview summaries together')]
-    return dict(themes=cards(statuses), timeline_recorded=(folder/'activity.json').is_file() or bool(context),
+    return dict(mongo_examples=mongo_examples(mongo, source_hash) if (profile_ok or input_ok) else {'documents': {}, 'aggregations': {}}, themes=cards(statuses), timeline_recorded=(folder/'activity.json').is_file() or bool(context),
         collections=input_record.get('tables',{}), source_import=input_record.get('source_import',{}),
         database=input_record.get('database'),
         indexes=profile.get('indexes',read(mongo / 'indexes.json',{})) if (profile_ok or input_ok) else {}, operators=operator_info,

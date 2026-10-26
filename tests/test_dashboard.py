@@ -108,3 +108,27 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('Not recorded',comparison)
         self.assertNotIn('99.00',comparison)
         self.assertIn('2 / 1',comparison)
+
+    def test_older_mongo_run_displays_saved_outputs_without_fabricated_documents(self):
+        self.seed()
+        html=self.client.get('/').data
+        self.assertIn(b'See the data: before and after aggregation',html)
+        self.assertIn(b'Raw document examples were not archived',html)
+        self.assertIn(b'After aggregation',html)
+
+    def test_saved_document_previews_render_with_matching_import_metadata(self):
+        run=self.seed();mongo=run/'mongo';mongo.mkdir()
+        (mongo/'input.json').write_text(json.dumps({'source_sha256':'a'*64,'database':'fdc_test','tables':{'food':1}}))
+        previews={'source_sha256':'a'*64,'database':'fdc_test',
+                  'raw_food':[{'fdc_id':'10','description':'Actual fixture food'}],
+                  'raw_food_nutrient':[{'fdc_id':'10','nutrient_id':'1003','amount':'2'}],
+                  'raw_nutrient':[{'id':'1003','name':'Protein'}],
+                  'foods':[{'fdc_id':'10','nutrients':[{'nutrient_id':1003,'amount':2}]}]}
+        (mongo/'previews.json').write_text(json.dumps(previews))
+        (mongo/'foods_by_type.jsonl').write_text(json.dumps({'data_type':'branded_food','foods':1})+'\n')
+        html=self.client.get('/').data
+        self.assertIn(b'Actual fixture food',html)
+        self.assertIn(b'Protein',html)
+        self.assertIn(b'After linking',html)
+        self.assertIn(b'Foods By Type',html)
+        self.assertNotIn(b'Raw document examples were not archived',html)
