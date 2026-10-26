@@ -5,30 +5,32 @@ same college network, and permission from the lab administrator. It is a fresh
 installation guide, not instructions for changing an existing Hadoop cluster.
 The physical-lab steps have not yet been tested on your college machines.
 
-### Do the latest website changes affect this setup?
+## Read this first: what gets installed where?
 
-**No.** Keep the same master, two workers, network settings and installed tools.
-The website's new Ready/history display and live process panel belong to laptop
-jobs started using its buttons. In this lab guide, you start the physical-cluster
-run from MASTER's Terminal and use the website to view its saved results.
+**HDFS is included in Hadoop.** Installing Hadoop installs the `hdfs` command,
+NameNode and DataNode programs. YARN and MapReduce are included too. There is no
+separate `apt install hdfs` step. Installation, configuration and startup are
+three different steps; all three are covered below.
 
-If you already followed this guide, update the code **on MASTER only**, as the
-`hadoop` user, before starting your next run:
+| Software | MASTER | WORKER1 | WORKER2 | Installation step |
+| --- | --- | --- | --- | --- |
+| Ubuntu, Python 3, SSH and basic tools | Yes | Yes | Yes | Steps 0–2 |
+| Docker engine | Yes | No | No | Step 4 |
+| Project code and Python packages | Yes | No | No | Step 4 installer |
+| Java 8 | Yes | Yes | Yes | Step 4 download; step 5 copy |
+| Hadoop, **HDFS**, YARN and MapReduce | Yes | Yes | Yes | Step 4 download; step 5 copy |
+| Pig and Hive | Yes | No | No | Step 4 installer |
+| MongoDB container | Yes | No | No | Step 4 download; step 9 start |
 
-```bash
-cd ~/BDA-Assignment
-git pull --ff-only origin main
-```
+Follow **0 → 1 → … → 14**, switching computers only when the heading says so.
+On a fresh installation, do not start in the middle. Each worker receives its
+actual Java/Hadoop installation from MASTER using `rsync`; it does not merely
+connect to software installed on another laptop.
 
-Then continue with your existing setup; do not repeat installation, NameNode
-formatting or metastore initialization just for a website update. Restart an
-open dashboard after pulling, using the command in step 12. This guide does not
-clone the project on the workers: they receive Java/Hadoop from MASTER and the
-processing files through Hadoop. No worker update is needed for this UI fix.
-
-**If the computers run Windows, stop here and ask the lab admin about Linux.**
-Do not reinstall their OS. Windows/WSL on three machines needs extra networking
-work; the native Linux commands below are not a ready-made Windows setup.
+This guide also applies to three personal laptops running native Ubuntu on the
+same trusted network. Confirm that personal machines meet your faculty's lab
+requirements. For an existing installation, use the restart instructions at the
+end instead of repeating first-time initialization.
 
 ## First: where do I type things?
 
@@ -53,6 +55,38 @@ If you cannot log in or run `sudo`, the lab admin must provide access; you canno
 create administrator privileges by inventing a password.
 
 ## 0. Before you start
+
+### 0A. If Ubuntu is not installed
+
+These commands need **native Ubuntu 24.04 LTS**, not Windows PowerShell. Having
+Ubuntu inside WSL on one laptop does not automatically configure three-machine
+networking. This walkthrough does not use WSL for the physical workers.
+
+On college computers, have the administrator provide Ubuntu and an admin login.
+On your own laptops, first back up important Windows files and any recovery key.
+Use Ubuntu's official installation instructions:
+https://ubuntu.com/tutorials/install-ubuntu-desktop . Choose the **24.04 LTS**
+desktop image at https://releases.ubuntu.com/24.04/ .
+
+The installation sequence on each personal laptop is:
+
+1. Make an Ubuntu installer USB following the official guide. Writing the image
+   erases the USB, so use a spare drive with nothing you need on it.
+2. Restart and select that USB from the laptop's boot menu (the key depends on
+   the manufacturer). Try Ubuntu first to check Wi-Fi/Ethernet and keyboard.
+3. Start the installer. To retain Windows, use the supported **install alongside
+   Windows** option when available. If the installer offers only erasing the
+   disk, stop and get help with partitioning; do not select erase by mistake.
+4. Create an Ubuntu administrator username and password; record them securely.
+5. Finish installation, restart, remove the USB when prompted and boot Ubuntu.
+6. Connect Ubuntu to the network and check that a website opens. Repeat on the
+   other two laptops. Then continue below.
+
+Keep laptops plugged in. On each Ubuntu desktop open **Settings → Power** and
+turn off automatic suspend while plugged in for the duration of the experiment.
+Screen blanking is fine; system suspend is not. Keep lids open.
+
+### 0B. Choose roles and collect prerequisites
 
 Bring the official October 2024 ZIP on a USB drive. You do not need to extract it
 or copy the laptop's MongoDB/HDFS data. Bring this guide too.
@@ -86,7 +120,7 @@ basic commands, including the nano editor. This is before we try to edit files:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y nano iproute2 iputils-ping ca-certificates curl
+sudo apt-get install -y nano iproute2 iputils-ping ca-certificates curl netcat-openbsd ufw
 ```
 
 If `sudo` says “not in the sudoers file”, stop and ask the lab admin to run the
@@ -97,12 +131,42 @@ Now check the machine:
 ```bash
 cat /etc/os-release
 hostname -I
+uname -m
 free -h
 df -h /
 ```
 
 Write down each machine's LAN IPv4 address, RAM and free disk. Ask the admin for
 stable/reserved LAN addresses so the IPs do not change during the experiment.
+
+Use Intel/AMD laptops reporting **`x86_64`** for this walkthrough; do not mix
+architectures with the copied Java installation. `cat /etc/os-release` should
+identify Ubuntu 24.04. Write down the details before changing hostnames.
+
+### Set the actual computer names — admin account
+
+Run **only the matching command on each laptop**:
+
+On MASTER:
+
+```bash
+sudo hostnamectl set-hostname master
+```
+
+On WORKER1:
+
+```bash
+sudo hostnamectl set-hostname worker1
+```
+
+On WORKER2:
+
+```bash
+sudo hostnamectl set-hostname worker2
+```
+
+Open a new Terminal on each and run `hostname`. Expect its assigned name. The
+following hosts-file step connects those names to their real LAN addresses.
 
 ### What exactly do I write in `/etc/hosts`?
 
@@ -155,8 +219,12 @@ ff02::2 ip6-allrouters
 
 The existing `lab-pc-01` line can be different on each machine. The **three added
 LAN lines must be identical on all three computers**. If any of the names
-`master`, `worker1` or `worker2` already appears on another line, ask the admin
-to resolve that conflict; it must not point to both localhost and a LAN address.
+`master`, `worker1` or `worker2` already appears on a loopback line, remove that
+name from the loopback mapping. For example, comment out a line containing only
+`127.0.1.1 master` by adding `#` at its beginning. Keep `127.0.0.1 localhost`
+and the IPv6 localhost entries. Each cluster name must resolve only to its LAN
+address. If a line contains other names you do not recognize, have the admin
+review it before editing.
 
 Save and exit nano:
 
@@ -182,10 +250,35 @@ ping -c 2 worker1
 ping -c 2 worker2
 ```
 
+Use a router/switch that allows the laptops to communicate; guest Wi-Fi often
+isolates devices. Use the same trusted LAN, not three separate home networks.
+
 If the network blocks ping, ask the admin to check connectivity. The admin must
 also allow private LAN traffic for SSH and the Hadoop/YARN worker services;
 opening SSH alone is not enough. Do not disable the firewall or expose Hadoop
 to the public internet.
+
+### Firewall check — ALL THREE, admin account
+
+```bash
+sudo ufw status
+```
+
+If it says **inactive**, continue without enabling it for this project. If active,
+ask the administrator to permit traffic between these three trusted laptops.
+Hadoop uses several ports, including dynamically allocated task ports. With the
+administrator's agreement, the following example allows only the three specified
+peer IPs; replace them with your recorded addresses on each laptop:
+
+```bash
+sudo ufw allow from 192.168.1.101
+sudo ufw allow from 192.168.1.102
+sudo ufw allow from 192.168.1.103
+sudo ufw status
+```
+
+Do not use these example IPs unchanged if your LAN is different. A separate
+campus/network firewall may also require administrator configuration.
 
 ## 2. ALL THREE: install basics and create the project user
 
@@ -195,6 +288,17 @@ Run as the existing administrator:
 sudo apt-get update
 sudo apt-get install -y openssh-client openssh-server rsync git python3 python3-venv gnupg procps
 sudo systemctl enable --now ssh
+systemctl is-active ssh
+python3 --version
+```
+
+Expect `active` for SSH. Ubuntu 24.04 supplies Python 3.12, which the installer
+requires on MASTER. Workers use Python 3 for Streaming tasks. Check clock
+synchronization on all three as the admin:
+
+```bash
+timedatectl status
+sudo timedatectl set-ntp true
 ```
 
 Now create the new project account on each computer:
@@ -281,6 +385,17 @@ During each `ssh-copy-id` command:
 - At `hadoop@worker1's password:`, enter the `hadoop` password you created on
   **WORKER1**. Use WORKER2's password for worker2, and MASTER's for master.
 - Expect a message saying a key was added. Future connections use that key.
+
+To verify that SSH is reachable, MASTER can run:
+
+```bash
+nc -vz master 22
+nc -vz worker1 22
+nc -vz worker2 22
+```
+
+Expect connection success. A refusal means SSH is not running or the address is
+wrong; a timeout usually requires checking connectivity/firewall rules.
 
 The final three `ssh ... 'whoami'` commands should each print `hadoop` without
 asking for the login password. Do not
@@ -370,6 +485,25 @@ mkdir -p ~/fdc-tools
 cp -a data/tools/java data/tools/hadoop data/tools/pig data/tools/hive ~/fdc-tools/
 ```
 
+### Check the downloaded Hadoop/HDFS installation — MASTER
+
+Run as `hadoop` after the copy above:
+
+```bash
+ls ~/fdc-tools/hadoop/bin/hdfs
+ls ~/fdc-tools/hadoop/bin/yarn
+ls ~/fdc-tools/hadoop/share/hadoop/tools/lib/hadoop-streaming-*.jar
+ls ~/fdc-tools/java/bin/java
+.venv/bin/python -m pip show pymongo Flask
+```
+
+Expect the listed files and package information, with no “not found” message.
+`bin/hdfs` is your **installed HDFS command**. The storage directories are created
+in step 6, the NameNode is initialized in step 7, and HDFS services start there.
+The installer also provides SQLite through Python's standard library; a separate
+SQLite server is not required. If an installer download fails, keep its full
+error and resolve it before copying tools to workers.
+
 ## 5. MASTER: create the physical-cluster configuration
 
 This is a Python script launched from Terminal. Paste the entire block through
@@ -430,6 +564,21 @@ rsync -a ~/fdc-tools/java ~/fdc-tools/hadoop worker1:/home/hadoop/fdc-tools/
 rsync -a ~/fdc-tools/java ~/fdc-tools/hadoop worker2:/home/hadoop/fdc-tools/
 ```
 
+### Confirm Java and HDFS really arrived on the workers
+
+Still on MASTER as `hadoop`:
+
+```bash
+ssh worker1 '/home/hadoop/fdc-tools/java/bin/java -version'
+ssh worker2 '/home/hadoop/fdc-tools/java/bin/java -version'
+ssh worker1 'ls -l /home/hadoop/fdc-tools/hadoop/bin/hdfs'
+ssh worker2 'ls -l /home/hadoop/fdc-tools/hadoop/bin/hdfs'
+```
+
+Expect Java 8 on both and an executable `hdfs` file at the same path. If files are
+missing, fix the step 5 copies before continuing. No project clone or Docker
+installation is needed on either worker.
+
 ## 6. ALL THREE: set command paths and create storage folders
 
 Paste the whole block through `ENV`, then run the remaining lines. It writes
@@ -453,6 +602,9 @@ source ~/.bashrc
 mkdir -p ~/hadoop-state/{name,data,tmp}
 java -version
 hadoop version
+hdfs version
+hdfs getconf -confKey fs.defaultFS
+hdfs getconf -confKey dfs.datanode.data.dir
 ```
 
 Also check the installed Python on both workers:
@@ -463,10 +615,30 @@ python3 --version
 
 Expect Java 8 and Hadoop 2.10.2 everywhere. Pig/Hive paths are used only on master;
 workers do not need those packages. Python 3 must work on both workers.
+The filesystem setting must be `hdfs://master:9000`, and the DataNode directory
+must be `file:///home/hadoop/hadoop-state/data`, not `/state/data`. These checks
+confirm your commands use the physical-cluster configuration.
+
+Because you created the storage directories as `hadoop`, that account should own
+them. Check on all three:
+
+```bash
+ls -ld ~/hadoop-state ~/hadoop-state/data ~/hadoop-state/name
+```
+
+If another account owns them, ask the admin to correct ownership of these specific
+project folders. Do not run Hadoop with sudo or set everything to permission 777.
 
 ## 7. MASTER: initialize once, then start Hadoop
 
-**Only on a new, empty cluster**, run:
+On MASTER as `hadoop`, first check the storage:
+
+```bash
+ls -la ~/hadoop-state/name
+```
+
+If it already contains `current/VERSION`, this cluster has been initialized;
+skip formatting and use the startup commands. **Only on a new, empty cluster**, run:
 
 ```bash
 hdfs namenode -format
@@ -496,6 +668,19 @@ MASTER should show `NameNode`, `ResourceManager`, `JobHistoryServer` and usually
 `SecondaryNameNode`. Each worker should show `DataNode` and `NodeManager`.
 If a daemon is missing, inspect `~/fdc-tools/hadoop/logs/` on that machine.
 
+Give daemons time to start, then run on MASTER:
+
+```bash
+hdfs dfsadmin -safemode wait
+hdfs dfsadmin -report
+yarn node -list -states RUNNING
+```
+
+Wait for safe mode to turn off. Expect two live DataNodes and two running workers.
+Initial connection refusals can occur before services bind their ports. If the
+checks continue failing, inspect the matching node's Hadoop logs rather than
+reformatting or repeatedly starting another daemon.
+
 ## 8. MASTER: prove Hadoop works before using the dataset
 
 ```bash
@@ -504,7 +689,10 @@ bash scripts/verify_cluster.sh
 ```
 
 Wait until it finishes. Expected: **two live DataNodes**, **two RUNNING YARN
-nodes**, safe mode off and a successful sample MapReduce job. Save the terminal
+nodes**, safe mode off and a successful sample MapReduce job. This sample estimates the mathematical number
+Pi (about 3.14); it tests Hadoop and does not analyze USDA data. YARN's running
+container count can be zero before/after jobs because it counts temporary task
+containers, not the number of worker computers. Save the terminal
 output/application ID. If any check fails, fix it before going further.
 
 ## 9. MASTER: start Hive and MongoDB
@@ -522,6 +710,7 @@ it **once** on this new installation, before starting HiveServer2:
 ```bash
 schematool -dbType derby -initSchema
 hiveserver2 > "$HOME/hadoop-state/hiveserver2.log" 2>&1 &
+echo $! > "$HOME/hadoop-state/hiveserver2.pid"
 ```
 
 Wait about a minute, then test it:
@@ -573,7 +762,11 @@ Check `crc_verified: true`. Your laptop's source SHA-256 was:
 85b6268117a8f6b8032d67a06ccd51ed1287a53ebaaeb0b3e262165e2820cb9f
 ```
 
-The copied file should match. Keep the ZIP intact. Check free disk on **each
+The copied file should match. Keep the ZIP intact. If you need to locate a mounted USB from Terminal, run
+`ls /media` and `ls /media/"$USER"` where applicable, or use Ubuntu's Files app;
+USB paths depend on the logged-in desktop account and drive label. Copy using
+that actual path, not a literal `<USB-path>` placeholder. The `hadoop` account
+must be able to read the resulting ZIP. Check free disk on **each
 physical machine**; do not infer it from the compressed file size alone.
 
 ## 11. MASTER: run the whole project
@@ -690,3 +883,63 @@ HiveServer2 was started in the background. Stop its exact process with `kill PID
 (use `ps -ef | grep '[H]iveServer2'` to identify it), or ask the admin to manage it
 as a service. Do not kill every Java process on the machine. Keep storage folders;
 normal restart uses service startup commands, **not** formatting or schema init.
+
+
+## 15. Starting again tomorrow — existing installation
+
+Use this after a normal shutdown with retained state. Do **not** reinstall,
+format the NameNode, initialize Derby again, or overwrite tool configuration.
+
+1. Power on all three laptops, connect to the same network and disable suspend.
+2. Check `hostname -I` and the host mappings again if network addresses changed.
+3. On MASTER open Terminal, run `sudo -iu hadoop`, then `source ~/.bashrc`.
+4. Check passwordless access with `ssh worker1 'whoami'` and
+   `ssh worker2 'whoami'`; both should print `hadoop`.
+5. Start Hadoop once on MASTER as `hadoop`:
+
+```bash
+start-dfs.sh
+start-yarn.sh
+mr-jobhistory-daemon.sh start historyserver
+hdfs dfsadmin -safemode wait
+hdfs dfsadmin -report
+yarn node -list -states RUNNING
+```
+
+If daemons are already running, inspect with `jps` instead of starting duplicates.
+Expect two workers. Start Hive only if it is not already running:
+
+```bash
+hiveserver2 > "$HOME/hadoop-state/hiveserver2.log" 2>&1 &
+echo $! > "$HOME/hadoop-state/hiveserver2.pid"
+```
+
+Wait and verify it using step 9's `SELECT 1` command. Start MongoDB on MASTER:
+
+```bash
+cd ~/BDA-Assignment
+bash scripts/start_mongo.sh
+```
+
+To **show existing results**, follow step 12; a new full import/analysis is not
+needed. To perform another full experiment, follow step 11 with a new run ID
+and inspect available storage first. Keep the laptop UI's Docker analysis
+buttons disabled by using `--view-only` on this physical-cluster master.
+
+## Quick help: where am I stuck?
+
+| What you see | What to check next |
+| --- | --- |
+| `hdfs: command not found` | Step 4/5 installed/copied Hadoop; step 6 sets PATH. Run `source ~/.bashrc`, then `command -v hdfs`. |
+| `JAVA_HOME is not set` | Check step 5's hadoop-env.sh and that `/home/hadoop/fdc-tools/java/bin/java` exists on that machine. |
+| SSH asks for a password | Step 3's public key copy must be completed for that specific host. |
+| Name resolves to 127.x or wrong IP | Correct `/etc/hosts` on all three; check `getent hosts master worker1 worker2`. |
+| Only one/zero workers | Check worker `jps`, Hadoop logs, Java path, identical config and private-LAN connectivity. |
+| Hive connection refused | Check HiveServer2 process and `~/hadoop-state/hiveserver2.log`; allow startup time. |
+| Derby already initialized/locked | Do not reinitialize it; check for another HiveServer2 using the same metastore. |
+| Output/database already exists | Existing results are protected; diagnose first and select a new run ID for a deliberate new experiment. |
+
+HDFS data lives in `~/hadoop-state/data` on each worker; NameNode metadata lives
+in `~/hadoop-state/name` on MASTER. View datasets using `hdfs dfs -ls`, `-cat` or
+Hive rather than editing the internal block files. Logs normally live in
+`~/fdc-tools/hadoop/logs` on each machine and Hive's explicit log path on MASTER.
